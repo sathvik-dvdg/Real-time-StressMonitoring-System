@@ -1,0 +1,38 @@
+type User @table {
+  username: String!
+  email: String!
+  passwordHash: String!
+  createdAt: Timestamp!
+  firstName: String
+  lastName: String
+}
+
+type StressEntry @table {
+  user: User
+  date: Date!
+  stressLevel: Int!
+  createdAt: Timestamp!
+  notes: String
+}
+
+type Stressor @table {
+  user: User
+  name: String!
+  createdAt: Timestamp!
+}
+
+type StressEntryStressor @table(key: ["stressEntry", "stressor"]) {
+  stressEntry: StressEntry!
+  stressor: Stressor!
+}
+
+type MitigationStrategy @table {
+  user: User
+  name: String!
+  createdAt: Timestamp!
+}
+
+type StressEntryMitigationStrategy @table(key: ["stressEntry", "mitigationStrategy"]) {
+  stressEntry: StressEntry!
+  mitigationStrategy: MitigationStrategy!
+}
