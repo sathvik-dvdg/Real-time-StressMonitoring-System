@@ -1,9 +1,24 @@
+# Flask server
 Flask==3.1.2
 Flask-CORS==4.0.1
+
+# Firebase
 firebase-admin==6.4.0
+
+# Environment & Utilities
 python-dotenv==1.0.1
-mediapipe==0.10.21
-scikit-learn==1.6.1
 joblib==1.5.2
+
+# Facial Analysis (Random Forest)
+scikit-learn==1.6.1
+mediapipe==0.10.21
 numpy==1.26.4
 opencv-python==4.7.0.72
+
+# Textual Analysis (RoBERTa)
+torch
+transformers
+scipy
+
+# Chatbot API (Gemini)
+google-generativeai
