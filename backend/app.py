@@ -1,12 +1,9 @@
 # ===================================================
 # IMPORTS
 # ===================================================
-import os  # <-- Import os
-from dotenv import load_dotenv  # <-- Import the dotenv library
+import os 
+from dotenv import load_dotenv  
 
-# --- 💥 CRITICAL FIX: Load .env file ---
-# This line MUST be at the very top of your script.
-# It reads your .env file and loads keys into os.environ
 load_dotenv()
 
 import base64
@@ -19,7 +16,7 @@ from flask_cors import CORS
 from math import hypot
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from scipy.special import expit  # More stable sigmoid
+from scipy.special import expit  
 
 # --- Firebase Imports ---
 import firebase_admin
@@ -30,7 +27,7 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# --- Configuration ---
+# --- Configuration ---     hh
 # Fix: Consolidate CORS to be more secure.
 CORS(app, resources={
     r"/api/*": {"origins": "http://localhost:5174"}
