@@ -1,3 +1,4 @@
+// frontend/src/components/WebCamCapture.jsx
 import React, { useState, useEffect, useRef } from 'react';
 
 const WebcamCapture = () => {

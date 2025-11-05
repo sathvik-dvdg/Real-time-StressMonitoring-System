@@ -134,7 +134,7 @@ const SessionPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post("http://localhost:5000/api/process", {
+      const response = await axios.post("http://localhost:5000/api/process_face", {
         sessionId: sessionIdRef.current,
         imageData: latestImageData,
         keystrokeData: keystrokeDataRef.current,

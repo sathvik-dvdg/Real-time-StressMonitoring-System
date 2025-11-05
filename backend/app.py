@@ -33,7 +33,7 @@ app = Flask(__name__)
 # --- Configuration ---
 # Fix: Consolidate CORS to be more secure.
 CORS(app, resources={
-    r"/api/*": {"origins": "http://localhost:5174"}
+    r"/api/*": {"origins": "http://localhost:5173"}
 })
 
 # -----------------------------------------------------------------

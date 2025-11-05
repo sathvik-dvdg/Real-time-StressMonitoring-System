@@ -1,3 +1,4 @@
+// frontend/src/database/firestore.js
 // We only need to import 'db' directly.
 // 'app' and 'getFirestore' are handled in firebaseConfig.js.
 import { db } from "./firebaseconfig";

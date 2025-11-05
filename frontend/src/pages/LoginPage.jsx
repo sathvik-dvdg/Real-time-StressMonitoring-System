@@ -1,3 +1,4 @@
+// frontend/src/pages/LoginPage.jsx
 import React, { useState } from 'react';
 import { useAuth } from '../context/authContext/AuthContext';
 import { doCreateUserWithEmailAndPassword, doSignInWithEmailAndPassword, doSignInWithGoogle } from '../database/auth'
@@ -104,7 +105,7 @@ const LoginPage = () => {
         />
         <button
           className={`flex h-12 w-full items-center justify-center rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 px-5 text-base font-semibold text-white shadow-lg shadow-blue-500/30 ${isSigningIn ? 'opacity-50 cursor-not-allowed' : ''}`}
-          onClick={handleSignUp}
+          onClick={handleLogin}
           disabled={isSigningIn}
         >
           <span className="truncate">{isSigningIn ? 'Signing Up...' : 'SIGN UP'}</span>

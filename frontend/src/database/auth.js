@@ -1,3 +1,4 @@
+// frontend/src/database/auth.js
 import { auth } from "./firebaseconfig";
 import {
   createUserWithEmailAndPassword,

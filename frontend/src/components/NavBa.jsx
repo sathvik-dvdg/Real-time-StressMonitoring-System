@@ -1,3 +1,4 @@
+// frontend/src/components/NavBa.jsx
 import { useState, useEffect } from "react";
 // import { IKImage } from "imagekitio-react";
 import { Link } from "react-router-dom";

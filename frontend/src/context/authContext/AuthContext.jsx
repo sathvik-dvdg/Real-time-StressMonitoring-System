@@ -1,3 +1,4 @@
+// frontend/src/context/authContext/AuthContext.jsx
 import React, { useContext, useState, useEffect } from "react";
 import { auth } from '../../database/firebaseconfig';
 import { GoogleAuthProvider } from "firebase/auth";

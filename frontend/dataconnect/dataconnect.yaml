@@ -1,3 +1,4 @@
+#frontend/dataconnect/dataconnect.yaml
 specVersion: "v1"
 serviceId: "stressdetectionfrontend"
 location: "us-central1"
