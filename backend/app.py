@@ -1,10 +1,10 @@
 # ===================================================
 # IMPORTS
 # ===================================================
-import os  # <-- Import os
+import os
 from dotenv import load_dotenv  # <-- Import the dotenv library
 
-# --- 💥 CRITICAL FIX: Load .env file ---
+# --- 💥 CRITICAL: Load .env file ---
 # This line MUST be at the very top of your script.
 # It reads your .env file and loads keys into os.environ
 load_dotenv()
@@ -31,7 +31,7 @@ import google.generativeai as genai
 app = Flask(__name__)
 
 # --- Configuration ---
-# Fix: Consolidate CORS to be more secure.
+# FIX: Use the correct frontend port 5173
 CORS(app, resources={
     r"/api/*": {"origins": "http://localhost:5173"}
 })
@@ -52,16 +52,14 @@ except Exception as e:
 
 # --- Gemini API Initialization ---
 try:
-    # This line will NOW work because load_dotenv() ran
     GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY")
     if not GEMINI_API_KEY:
-        # Updated error message
         print("❌ Error: GOOGLE_API_KEY not found in .env file or environment.")
         gemini_model = None
     else:
         genai.configure(api_key=GEMINI_API_KEY)
-        gemini_model = genai.GenerativeModel('gemini-pro')
-        # Updated success message
+        # 💥 FIX: Use the latest model name for the upgraded library
+        gemini_model = genai.GenerativeModel('gemini-2.5-flash')
         print("✅ Gemini API configured successfully (loaded from .env).")
 except Exception as e:
     print(f"❌ Error configuring Gemini: {e}")
@@ -151,6 +149,7 @@ def convert_base64_to_numpy(base64_image_data):
 # -----------------------------------------------------------------
 # 3. TEXTUAL STRESS MODEL (NEWLY ADDED)
 # -----------------------------------------------------------------
+# Corrected path to remove "ML-service"
 base_dir = os.path.dirname(os.path.abspath(__file__))
 TEXT_MODEL_PATH = os.path.join(base_dir, "model", "huggingface_model")
 OPTIMAL_THRESHOLD_TEXT = 0.3400
@@ -324,4 +323,5 @@ def handle_chat():
 # -----------------------------------------------------------------
 if __name__ == '__main__':
     # Use 0.0.0.0 to make it accessible on your network, or keep 127.0.0.1 for local only
+    # Run on port 5000 to match the frontend
     app.run(debug=True, host='0.0.0.0', port=5000)

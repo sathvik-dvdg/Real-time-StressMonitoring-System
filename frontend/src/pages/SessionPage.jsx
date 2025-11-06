@@ -3,12 +3,11 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 import { useAuth } from '../context/authContext/AuthContext';
-import { saveStressScore } from '../database/firestore';
+import Chat from '../components/Chat'; // Import the new Chat component
 
 const SessionPage = () => {
   const { userLoggedIn, currentUser } = useAuth();
   const [sessionActive, setSessionActive] = useState(false);
-  const [keystrokeData, setKeystrokeData] = useState([]);
   const [stressScores, setStressScores] = useState([]);
   const [sessionTime, setSessionTime] = useState(0);
   const [currentStressScore, setCurrentStressScore] = useState(null);
@@ -19,15 +18,12 @@ const SessionPage = () => {
   const frameTimerRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const sessionIdRef = useRef(null);
-  const keystrokeDataRef = useRef([]);
   const isSendingRef = useRef(false);
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    keystrokeDataRef.current = keystrokeData;
-  }, [keystrokeData]);
+  // Get the current user's ID
+  const userId = currentUser ? currentUser.uid : 'anonymous';
 
   // ---------- START SESSION ----------
   const startSession = async () => {
@@ -56,39 +52,20 @@ const SessionPage = () => {
     }
 
     setSessionActive(false);
-
-    // --- NEW CODE: SAVE AVERAGE SCORE AT END OF SESSION ---
-    if (userLoggedIn && currentUser) {
-      if (stressScores.length > 0) {
-        const totalScore = stressScores.reduce((sum, current) => sum + current.score, 0);
-        const averageScore = Math.round(totalScore / stressScores.length);
-        const sessionData = {
-          sessionId: sessionIdRef.current,
-          userId: currentUser.uid,
-          averageScore: averageScore,
-          scores: stressScores,
-        };
-        saveStressScore(sessionData)
-          .then(() => console.log("Saving final average score and all session data to database."))
-          .catch((error) => console.error("Error saving session data:", error));
-      } else {
-        console.log("No scores to save.");
-      }
-    }
-    // --- END OF NEW CODE ---
+    setIsCameraReady(false); // Reset camera ready state
     
+    // All data was saved by the backend in real-time.
+    // We just navigate to the summary page.
+    console.log("Session stopped. All data saved by backend.");
     navigate("/summary");
   };
 
-  // 💡 CRITICAL FIX: The logic to start the session timers
+  // Logic to start the session timers once the camera is ready
   useEffect(() => {
     if (isCameraReady && !sessionActive) {
-      const newSessionId = uuidv4();
-      sessionIdRef.current = newSessionId;
       setSessionActive(true);
       setSessionTime(0);
       setCurrentStressScore(null);
-      setKeystrokeData([]);
       setStressScores([]);
 
       // Session timer (1s)
@@ -103,19 +80,18 @@ const SessionPage = () => {
     }
   }, [isCameraReady, sessionActive]);
 
-  // 💡 CRITICAL FIX: A dedicated useEffect to handle the session timeout
+  // Session timeout (2 minutes)
   useEffect(() => {
     if (sessionTime >= 120 && sessionActive) {
       stopSession();
     }
   }, [sessionTime, sessionActive]);
 
-  // ---------- CAPTURE + SEND ----------
+  // ---------- CAPTURE + SEND (FACIAL DATA) ----------
   const captureAndSend = async () => {
     if (
       isSendingRef.current ||
       !videoRef.current ||
-      !sessionIdRef.current ||
       videoRef.current.readyState !== 4
     ) {
       return;
@@ -128,16 +104,17 @@ const SessionPage = () => {
     context.drawImage(videoRef.current, 0, 0);
 
     const latestImageData = canvas.toDataURL("image/jpeg", 0.5);
-    console.log("Frame size (KB):", (latestImageData.length / 1024).toFixed(1));
+    // console.log("Frame size (KB):", (latestImageData.length / 1024).toFixed(1));
 
     isSendingRef.current = true;
     setIsLoading(true);
 
     try {
+      // 💥 FIXED: Call the correct /api/process_face endpoint
       const response = await axios.post("http://localhost:5000/api/process_face", {
-        sessionId: sessionIdRef.current,
+        userId: userId,
         imageData: latestImageData,
-        keystrokeData: keystrokeDataRef.current,
+        timestamp: new Date().toISOString()
       });
 
       if (response.data?.stress_score !== undefined) {
@@ -145,17 +122,15 @@ const SessionPage = () => {
           timestamp: new Date().toISOString(),
           score: response.data.stress_score,
         };
+        // Update local state for the live graph
         setStressScores((prev) => [...prev, newStressScore]);
         setCurrentStressScore(response.data.stress_score);
-        setKeystrokeData([]);
       }
     } catch (error) {
       if (error.response) {
-        console.error("Backend error:", error.response.status, error.response.data);
-      } else if (error.request) {
-        console.error("No response received:", error.request);
+        console.error("Backend error (facial):", error.response.status, error.response.data);
       } else {
-        console.error("Request setup error:", error.message);
+        console.error("Request setup error (facial):", error.message);
       }
     } finally {
       isSendingRef.current = false;
@@ -163,29 +138,7 @@ const SessionPage = () => {
     }
   };
 
-  // ---------- TEST CAPTURE ----------
-  const captureFrameToConsole = () => {
-    if (!videoRef.current || !sessionActive) {
-      console.log("Webcam not ready or session not active.");
-      return;
-    }
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    context.drawImage(videoRef.current, 0, 0);
-
-    const imageData = canvas.toDataURL("image/jpeg", 0.5);
-    console.log("Captured Image Data (Base64):", imageData.slice(0, 100) + "...");
-  };
-
-  // ---------- KEYSTROKE MONITOR ----------
-  const handleKeystroke = (event) => {
-    if (!sessionActive) return;
-    const keystroke = { key: event.key, timestamp: new Date().toISOString() };
-    setKeystrokeData((prev) => [...prev, keystroke]);
-  };
-
+  // ---------- UTILITY FUNCTIONS ----------
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -194,6 +147,7 @@ const SessionPage = () => {
 
   // ---------- CLEANUP ----------
   useEffect(() => {
+    // This runs when the component unmounts (e.g., user navigates away)
     return () => {
       if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
       if (frameTimerRef.current) clearInterval(frameTimerRef.current);
@@ -206,7 +160,7 @@ const SessionPage = () => {
   // ---------- UI ----------
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -218,7 +172,7 @@ const SessionPage = () => {
         {/* Timer */}
         <div className="text-center mb-8">
           <div className="text-6xl font-bold text-indigo-600 mb-2">
-            {formatTime(sessionTime)}
+            {formatTime(sessionTime)} / 02:00
           </div>
           <div className="text-xl text-gray-600">
             {sessionActive ? "Session in Progress" : "Session Ready"}
@@ -248,91 +202,71 @@ const SessionPage = () => {
         </div>
 
         {/* Data Saving Status */}
-        <div className="text-center mt-4">
+        <div className="text-center mt-4 mb-8">
           {userLoggedIn ? (
             <span className="text-sm font-medium text-green-600">
               <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-              Your session data will be saved.
+              Logged in. Session data will be saved.
             </span>
           ) : (
             <span className="text-sm font-medium text-red-600">
               <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-              You are not logged in. Your session data will not be saved.
+              You are not logged in. Session data will not be saved.
             </span>
           )}
         </div>
 
-        {/* Graph */}
-        {stressScores.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-              Live Stress Graph
-            </h2>
-            <div className="h-64 bg-gray-50 rounded-lg p-4 mb-4 overflow-x-auto flex items-end">
-              {stressScores.map((score, index) => (
-                <div key={index} className="flex flex-col items-center mx-1">
-                  <div
-                    className="w-6 bg-indigo-500 rounded-t transition-all duration-500"
-                    style={{ height: `${score.score * 2}px` }}
-                  ></div>
-                  <span className="text-xs text-gray-500 mt-1">{score.score}</span>
+        {/* Main Content Area (Webcam, Chat, Graph) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Column 1: Webcam & Graph */}
+          <div className="lg:col-span-2">
+            {/* Webcam */}
+            <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Webcam Feed</h3>
+              <div className="flex justify-center">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  muted
+                  className="w-full max-w-md h-64 bg-gray-200 rounded-lg"
+                />
+              </div>
+            </div>
+
+            {/* Graph */}
+            {stressScores.length > 0 && (
+              <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+                  Live Facial Stress Graph
+                </h2>
+                <div className="h-64 bg-gray-50 rounded-lg p-4 mb-4 overflow-x-auto flex items-end">
+                  {stressScores.map((score, index) => (
+                    <div key={index} className="flex flex-col items-center mx-1">
+                      <div
+                        className="w-6 bg-indigo-500 rounded-t transition-all duration-500"
+                        style={{ height: `${score.score * 2}px` }} // Scale score for viz
+                      ></div>
+                      <span className="text-xs text-gray-500 mt-1">{score.score}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="text-center">
-              <p className="text-lg text-gray-700">
-                Current Stress Level:{" "}
-                <span className="font-bold text-indigo-600">{currentStressScore}%</span>
-              </p>
-            </div>
+                <div className="text-center">
+                  <p className="text-lg text-gray-700">
+                    Current Stress Level:{" "}
+                    <span className="font-bold text-indigo-600">{currentStressScore}%</span>
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+          
+          {/* Column 2: Chat Component */}
+          <div className="lg:col-span-1">
+            <Chat />
+          </div>
 
-        {/* Webcam */}
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Webcam Feed</h3>
-          <div className="flex justify-center">
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              className="w-full max-w-md h-64 bg-gray-200 rounded-lg"
-            />
-          </div>
-          {sessionActive && (
-            <div className="text-center mt-4">
-              <button
-                onClick={captureFrameToConsole}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg text-md transition duration-300 transform hover:scale-105"
-              >
-                Capture Frame to Console
-              </button>
-            </div>
-          )}
         </div>
-
-        {/* Keystroke */}
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Code Editor (Keystroke Monitoring)
-          </h3>
-          <textarea
-            className="w-full h-32 p-4 border border-gray-300 rounded-lg font-mono text-sm"
-            placeholder="Type here to monitor keystrokes during the session..."
-            onKeyDown={handleKeystroke}
-            disabled={!sessionActive}
-          />
-        </div>
-
-        {/* Loader */}
-        {/* {isLoading && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-              <p className="text-gray-700">Processing frame...</p>
-            </div>
-          </div>
-        )} */}
       </div>
     </div>
   );
