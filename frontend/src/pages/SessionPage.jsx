@@ -5,6 +5,10 @@ import { v4 as uuidv4 } from "uuid";
 import { useAuth } from '../context/authContext/AuthContext';
 import Chat from '../components/Chat'; // Import the new Chat component
 
+// 💥 1. ADD FIREBASE IMPORTS for saving the session summary
+import { db } from '../database/firebaseconfig';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+
 const SessionPage = () => {
   const { userLoggedIn, currentUser } = useAuth();
   const [sessionActive, setSessionActive] = useState(false);
@@ -19,6 +23,7 @@ const SessionPage = () => {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const isSendingRef = useRef(false);
+  const sessionIdRef = useRef(null); // <-- 💥 ADDED: To store the session ID
 
   const navigate = useNavigate();
 
@@ -27,6 +32,10 @@ const SessionPage = () => {
 
   // ---------- START SESSION ----------
   const startSession = async () => {
+    // 💥 ADDED: Create a unique ID for this session
+    sessionIdRef.current = uuidv4();
+    console.log("New Session Started:", sessionIdRef.current);
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480 },
@@ -43,7 +52,7 @@ const SessionPage = () => {
   };
 
   // ---------- STOP SESSION ----------
-  const stopSession = () => {
+  const stopSession = async () => {
     // Clear timers and release camera resources
     if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
     if (frameTimerRef.current) clearInterval(frameTimerRef.current);
@@ -54,8 +63,34 @@ const SessionPage = () => {
     setSessionActive(false);
     setIsCameraReady(false); // Reset camera ready state
     
-    // All data was saved by the backend in real-time.
-    // We just navigate to the summary page.
+    // --- NEW LOGIC TO SAVE THE SESSION ---
+    if (userLoggedIn && currentUser && stressScores.length > 0) {
+      console.log("Saving session summary...");
+      try {
+        // Calculate average score from the facial readings
+        const totalScore = stressScores.reduce((sum, current) => sum + current.score, 0);
+        const averageScore = Math.round(totalScore / stressScores.length);
+        
+        // Use the session ID from the ref
+        const sessionID = sessionIdRef.current; 
+        const sessionRef = doc(db, 'users', userId, 'sessions', sessionID);
+        
+        // Save the summary data
+        await setDoc(sessionRef, {
+          averageScore: averageScore,
+          timestamp: serverTimestamp(), // Use Firestore's server timestamp
+          scores: stressScores, // Save all the raw facial scores from the session
+          sessionId: sessionID
+        });
+        
+        console.log("Session summary saved successfully!");
+        
+      } catch (error) {
+        console.error("Error saving session summary:", error);
+      }
+    }
+    // --- END OF NEW LOGIC ---
+    
     console.log("Session stopped. All data saved by backend.");
     navigate("/summary");
   };
@@ -104,15 +139,15 @@ const SessionPage = () => {
     context.drawImage(videoRef.current, 0, 0);
 
     const latestImageData = canvas.toDataURL("image/jpeg", 0.5);
-    // console.log("Frame size (KB):", (latestImageData.length / 1024).toFixed(1));
 
     isSendingRef.current = true;
     setIsLoading(true);
 
     try {
-      // 💥 FIXED: Call the correct /api/process_face endpoint
+      // Call the correct /api/process_face endpoint
       const response = await axios.post("http://localhost:5000/api/process_face", {
         userId: userId,
+        sessionId: sessionIdRef.current, // <-- 💥 ADDED: Send the session ID
         imageData: latestImageData,
         timestamp: new Date().toISOString()
       });
@@ -263,7 +298,8 @@ const SessionPage = () => {
           
           {/* Column 2: Chat Component */}
           <div className="lg:col-span-1">
-            <Chat />
+            {/* 💥 CHANGED: Pass the session ID as a prop */}
+            <Chat sessionId={sessionIdRef.current} />
           </div>
 
         </div>

@@ -2,27 +2,32 @@ import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/authContext/AuthContext';
 import { Send } from 'lucide-react'; // A nice send icon (optional)
+import ReactMarkdown from 'react-markdown'; 
 
 // Helper component for the chat bubbles
 const ChatBubble = ({ message }) => {
   const isUser = message.sender === 'user';
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+      {/* FIX: All styling classes are on the parent div */}
       <div
-        className={`rounded-lg px-4 py-3 max-w-xs ${
+        className={`rounded-lg px-4 py-3 max-w-xs text-sm prose ${
           isUser
-            ? 'bg-indigo-600 text-white'
+            ? 'bg-indigo-600 text-white prose-invert' // prose-invert makes text white
             : 'bg-gray-200 text-gray-900'
         }`}
       >
-        <p className="text-sm">{message.text}</p>
+        {/* FIX: No className prop here */}
+        <ReactMarkdown>
+          {message.text}
+        </ReactMarkdown>
       </div>
     </div>
   );
 };
 
-// The Main Chat Component
-const Chat = () => {
+// 💥 CHANGED: Receive 'sessionId' as a prop
+const Chat = ({ sessionId }) => {
   const { currentUser } = useAuth();
   const [messages, setMessages] = useState([
     {
@@ -57,12 +62,13 @@ const Chat = () => {
       // 2. Set up both API calls to run in parallel
       const chatPromise = axios.post('http://localhost:5000/api/chat', {
         prompt: prompt,
-        userId: userId, // Pass userId just in case
+        userId: userId, 
       });
 
       const stressPromise = axios.post('http://localhost:5000/api/process_text', {
         text: prompt,
         userId: userId,
+        sessionId: sessionId, // <-- 💥 ADDED: Send the session ID
         timestamp: new Date().toISOString(),
       });
 

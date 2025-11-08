@@ -5,8 +5,6 @@ import os
 from dotenv import load_dotenv  # <-- Import the dotenv library
 
 # --- 💥 CRITICAL: Load .env file ---
-# This line MUST be at the very top of your script.
-# It reads your .env file and loads keys into os.environ
 load_dotenv()
 
 import base64
@@ -31,7 +29,6 @@ import google.generativeai as genai
 app = Flask(__name__)
 
 # --- Configuration ---
-# FIX: Use the correct frontend port 5173
 CORS(app, resources={
     r"/api/*": {"origins": "http://localhost:5173"}
 })
@@ -58,7 +55,7 @@ try:
         gemini_model = None
     else:
         genai.configure(api_key=GEMINI_API_KEY)
-        # 💥 FIX: Use the latest model name for the upgraded library
+        # Keeping your requested model name
         gemini_model = genai.GenerativeModel('gemini-2.5-flash')
         print("✅ Gemini API configured successfully (loaded from .env).")
 except Exception as e:
@@ -149,7 +146,6 @@ def convert_base64_to_numpy(base64_image_data):
 # -----------------------------------------------------------------
 # 3. TEXTUAL STRESS MODEL (NEWLY ADDED)
 # -----------------------------------------------------------------
-# Corrected path to remove "ML-service"
 base_dir = os.path.dirname(os.path.abspath(__file__))
 TEXT_MODEL_PATH = os.path.join(base_dir, "model", "huggingface_model")
 OPTIMAL_THRESHOLD_TEXT = 0.3400
@@ -219,6 +215,7 @@ def process_face_data():
         data = request.json
         base64_image_data = data.get('imageData')
         user_id = data.get('userId', 'anonymous')
+        session_id = data.get('sessionId', 'unknown_session') # <-- 💥 ADDED
         timestamp = data.get('timestamp', firestore.SERVER_TIMESTAMP)
 
         if not base64_image_data:
@@ -238,12 +235,16 @@ def process_face_data():
         
         # --- Store data in Firestore ---
         try:
-            db.collection('users').document(user_id).collection('facial_stress').add({
+            # FIX: Save to 'stress_scores' to match Dashboard.jsx
+            db.collection('users').document(user_id).collection('stress_scores').add({
                 'score': stress_score,
                 'timestamp': timestamp,
-                'face_detected': face_detected
+                'face_detected': face_detected,
+                'type': 'facial',  # Add type to distinguish
+                'sessionId': session_id # <-- 💥 ADDED
             })
-            print(f"Facial score for user {user_id} recorded: {stress_score:.2f}%")
+            # 💥 CHANGED: Updated print statement
+            print(f"Facial score for user {user_id} (Session: {session_id}) recorded: {stress_score:.2f}%")
         except Exception as firebase_e:
             print(f"Error saving facial score to Firebase: {firebase_e}")
 
@@ -269,6 +270,7 @@ def process_text_data():
         data = request.json
         text = data.get('text')
         user_id = data.get('userId', 'anonymous')
+        session_id = data.get('sessionId', 'unknown_session') # <-- 💥 ADDED
         timestamp = data.get('timestamp', firestore.SERVER_TIMESTAMP)
 
         if not text:
@@ -280,13 +282,17 @@ def process_text_data():
         
         # --- Store data in Firestore ---
         try:
-            db.collection('users').document(user_id).collection('textual_stress').add({
+            # FIX: Save to 'stress_scores' to match Dashboard.jsx
+            db.collection('users').document(user_id).collection('stress_scores').add({
                 'score': stress_score,
                 'text': text,
                 'detected_emotions': results['detected_emotions'],
-                'timestamp': timestamp
+                'timestamp': timestamp,
+                'type': 'textual', # Add type to distinguish
+                'sessionId': session_id # <-- 💥 ADDED
             })
-            print(f"Textual score for user {user_id} recorded: {stress_score}")
+            # 💥 CHANGED: Updated print statement
+            print(f"Textual score for user {user_id} (Session: {session_id}) recorded: {stress_score}")
         except Exception as firebase_e:
             print(f"Error saving textual score to Firebase: {firebase_e}")
 
@@ -309,8 +315,19 @@ def handle_chat():
         if not prompt:
             return jsonify({'error': 'No prompt provided'}), 400
         
+        # FIX: Add a system instruction to force short, conversational replies
+        system_instruction = (
+            "You are an AI wellness assistant in a stress detection app. "
+            "A user is talking to you while in a session. "
+            "IMPORTANT: Keep all your responses concise, friendly, and under 50 words. "
+            "Use simple, conversational language. Avoid long lists."
+        )
+        
+        # Combine the instruction with the user's prompt
+        full_prompt = f"{system_instruction}\n\nUSER: {prompt}\nAI:"
+        
         # Generate the response
-        response = gemini_model.generate_content(prompt)
+        response = gemini_model.generate_content(full_prompt)
         
         return jsonify({'response': response.text})
 
@@ -323,5 +340,5 @@ def handle_chat():
 # -----------------------------------------------------------------
 if __name__ == '__main__':
     # Use 0.0.0.0 to make it accessible on your network, or keep 127.0.0.1 for local only
-    # Run on port 5000 to match the frontend
+    # FIX: Run on port 5000 to match the frontend
     app.run(debug=True, host='0.0.0.0', port=5000)
