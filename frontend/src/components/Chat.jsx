@@ -4,7 +4,7 @@ import { useAuth } from '../context/authContext/AuthContext';
 import { Send } from 'lucide-react'; // A nice send icon (optional)
 import ReactMarkdown from 'react-markdown'; 
 
-// Helper component for the chat bubbles
+// --- Helper component for the chat bubbles (Fixed) ---
 const ChatBubble = ({ message }) => {
   const isUser = message.sender === 'user';
   return (
@@ -26,7 +26,14 @@ const ChatBubble = ({ message }) => {
   );
 };
 
-// 💥 CHANGED: Receive 'sessionId' as a prop
+// --- List of quick suggestions ---
+const suggestions = [
+  "I feel stressed right now.",
+  "Give me a relaxation tip.",
+  "I'm not feeling productive."
+];
+
+// The Main Chat Component
 const Chat = ({ sessionId }) => {
   const { currentUser } = useAuth();
   const [messages, setMessages] = useState([
@@ -44,18 +51,15 @@ const Chat = ({ sessionId }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const prompt = input.trim();
-
-    if (!prompt) return;
+  // 💥 REFACTORED: Core logic for sending any message
+  const sendMessage = async (prompt) => {
+    if (isLoading) return; // Don't send if already loading
 
     const userId = currentUser ? currentUser.uid : 'anonymous';
     const userMessage = { sender: 'user', text: prompt };
 
     // 1. Add user's message to the UI immediately
     setMessages((prev) => [...prev, userMessage]);
-    setInput('');
     setIsLoading(true);
 
     try {
@@ -68,7 +72,7 @@ const Chat = ({ sessionId }) => {
       const stressPromise = axios.post('http://localhost:5000/api/process_text', {
         text: prompt,
         userId: userId,
-        sessionId: sessionId, // <-- 💥 ADDED: Send the session ID
+        sessionId: sessionId, 
         timestamp: new Date().toISOString(),
       });
 
@@ -85,7 +89,7 @@ const Chat = ({ sessionId }) => {
       };
       setMessages((prev) => [...prev, aiMessage]);
 
-      // 5. Log the stress score for debugging (it's already saved in Firebase)
+      // 5. Log the stress score for debugging
       console.log(
         'Textual Stress Score Logged:',
         stressResponse.data.stress_score
@@ -93,7 +97,6 @@ const Chat = ({ sessionId }) => {
 
     } catch (error) {
       console.error('Error processing chat:', error);
-      // Add an error message to the chat UI
       const errorMessage = {
         sender: 'ai',
         text: 'Sorry, I ran into an error. Please try again.',
@@ -102,6 +105,21 @@ const Chat = ({ sessionId }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // 💥 UPDATED: handleSubmit now just wraps sendMessage
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const prompt = input.trim();
+    if (prompt) {
+      sendMessage(prompt);
+      setInput(''); // Clear input after sending
+    }
+  };
+
+  // 💥 NEW: Handle clicks on suggestion buttons
+  const handleSuggestionClick = (prompt) => {
+    sendMessage(prompt);
   };
 
   return (
@@ -122,8 +140,21 @@ const Chat = ({ sessionId }) => {
             </div>
           </div>
         )}
-        {/* Empty div to force scroll-to-bottom */}
         <div ref={messagesEndRef} />
+      </div>
+
+      {/* 💥 NEW: Quick Suggestions */}
+      <div className="flex flex-wrap gap-2 my-3">
+        {suggestions.map((text) => (
+          <button
+            key={text}
+            onClick={() => handleSuggestionClick(text)}
+            disabled={isLoading || !currentUser}
+            className="text-xs text-indigo-700 bg-indigo-100 hover:bg-indigo-200 rounded-full px-3 py-1 transition disabled:opacity-50"
+          >
+            {text}
+          </button>
+        ))}
       </div>
 
       {/* Input Form */}
@@ -134,7 +165,7 @@ const Chat = ({ sessionId }) => {
           placeholder="Ask for a hint or vent here..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          disabled={!currentUser || isLoading} // Disable if not logged in or loading
+          disabled={!currentUser || isLoading} 
         />
         <button
           type="submit"
