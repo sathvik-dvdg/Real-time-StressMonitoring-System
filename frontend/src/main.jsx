@@ -1,4 +1,4 @@
-// src/main.jsx
+// frontend/src/main.jsx
 import React from 'react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -11,7 +11,11 @@ import Landingpage from './pages/Landingpage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import Summarypage from './pages/Summarypage.jsx';
 
-// 1. Define your routes using createBrowserRouter
+// 💥 1. IMPORT THE NEW PAGES
+import ScenariosPage from './pages/ScenariosPage.jsx';
+import ObjectivePage from './pages/ObjectivePage.jsx';
+import AboutPage from './pages/AboutPage.jsx';
+
 const router = createBrowserRouter([
   {
     path: '/',
@@ -33,11 +37,24 @@ const router = createBrowserRouter([
         path: '/login',
         element: <LoginPage />,
       },
+      // 💥 2. ADD THE NEW ROUTES
+      {
+        path: '/scenarios',
+        element: <ScenariosPage />,
+      },
+      {
+        path: '/objective',
+        element: <ObjectivePage />,
+      },
+      {
+        path: '/about',
+        element: <AboutPage />,
+      },
     ],
   },
 ]);
 
-// 2. Render your application with AuthProvider and RouterProvider
+// ... (rest of your file is the same) ...
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthProvider>
