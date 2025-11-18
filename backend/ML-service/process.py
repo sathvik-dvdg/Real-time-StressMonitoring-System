@@ -71,15 +71,24 @@ def get_head_pose_features(landmarks):
 
 # --- Main Facial Prediction Function ---
 
+# --- Main Facial Prediction Function ---
+import cv2 # Make sure to import cv2 at the top of your process.py file
+
 def get_facial_stress_score(image):
     """
     Takes a single image (as a NumPy array), processes it, and returns a facial stress score.
     """
     if facial_model is None or facial_scaler is None:
+        print("⚠️ DEBUG: Returning 50 because Model is NOT loaded.")
         return 50, False  # Return a neutral score if files aren't loaded
 
-    results = face_mesh.process(image)
+    # 💥 FIX: Convert BGR image to RGB for MediaPipe
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    results = face_mesh.process(image_rgb) # Process the RGB image
+    
     if not results.multi_face_landmarks:
+        print("⚠️ DEBUG: Returning 50 because MediaPipe found NO FACE.")
         return 50, False # Return a neutral score if no face is found
 
     landmarks = results.multi_face_landmarks[0].landmark
@@ -89,7 +98,11 @@ def get_facial_stress_score(image):
     R_EYE = [33, 160, 158, 133, 153, 145]
     MOUTH_MAR = [61, 39, 37, 269, 270, 267]
 
-    ear_val = calculate_ear(L_EYE, landmarks)
+    # 💥 FIX: Average both eyes for a more stable score
+    ear_val_left = calculate_ear(L_EYE, landmarks)
+    ear_val_right = calculate_ear(R_EYE, landmarks)
+    ear_val = (ear_val_left + ear_val_right) / 2.0
+    
     mar_val = calculate_mar(MOUTH_MAR, landmarks)
     eyebrow_dist = calculate_eyebrow_distance(landmarks)
     yaw_val, pitch_val = get_head_pose_features(landmarks)
@@ -101,13 +114,12 @@ def get_facial_stress_score(image):
 
     return stress_score, True
 
-
 # =======================================================================
 # PART 2: TEXTUAL STRESS MODEL (The new RoBERTa code)
 # =======================================================================
 
 # --- Text Model Configuration ---
-MODEL_PATH_TEXT = "./ML-service/model/huggingface_model" 
+MODEL_PATH_TEXT = "backend\model\huggingface_model" 
 OPTIMAL_THRESHOLD_TEXT = 0.3400 # The optimal threshold you found
 
 EMOTION_LABELS = [

@@ -1,2 +1,67 @@
-/*frontend/src/index.css*/
+/* 1. Import Tailwind's base styles */
 @import "tailwindcss";
+
+/* === Animated Particle Background === */
+
+/* 2. This is the main container for your pages */
+.animated-bg {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+  background-color: #0f172a; /* slate-900 */
+}
+
+/* 3. This ::before element creates the STATIC grid */
+.animated-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  
+  /* The static grid pattern (horizontal and vertical lines) */
+  background-image: 
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 24px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 24px);
+  background-size: 24px 24px;
+}
+
+/* 4. This ::after element creates the ANIMATED "data particles" */
+.animated-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+
+  /* Multiple radial gradients create "particles" of different sizes */
+  background-image:
+    radial-gradient(circle, rgba(59, 130, 246, 0.4) 1px, transparent 2px),
+    radial-gradient(circle, rgba(59, 130, 246, 0.3) 1px, transparent 2px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.2) 1px, transparent 2px);
+  
+  /* Spread the particles out on a large "canvas" */
+  background-size: 400px 400px, 200px 200px, 100px 100px;
+  background-position: 0 0, 50px 50px, 25px 25px;
+
+  /* The animation that moves the particle "canvas" upwards */
+  animation: moveParticles 25s linear infinite;
+}
+
+/* 5. The keyframe animation that moves the background position */
+@keyframes moveParticles {
+  0% {
+    background-position: 0 0, 50px 50px, 25px 25px;
+  }
+  100% {
+    /* Move the background vertically by its full size for a seamless loop */
+    background-position: 0 -400px, 50px -350px, 25px -375px;
+  }
+}
+
+/* 6. This class ensures your content (text, buttons)
+      sits on TOP of the background animations.
+*/
+.content-layer {
+  position: relative;
+  z-index: 10; /* Sits on top of z-index 0 and 1 */
+}
