@@ -9,12 +9,12 @@ import App from './App.jsx';
 import SessionPage from './pages/SessionPage.jsx';
 import Landingpage from './pages/Landingpage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
-import Summarypage from './pages/Summarypage.jsx';
 
 // 💥 1. IMPORT THE NEW PAGES
 import ScenariosPage from './pages/ScenariosPage.jsx';
 import ObjectivePage from './pages/ObjectivePage.jsx';
 import AboutPage from './pages/AboutPage.jsx';
+import Dashboard from './components/Dashboard.jsx';
 
 const router = createBrowserRouter([
   {
@@ -31,7 +31,7 @@ const router = createBrowserRouter([
       },
       {
         path: '/summary',
-        element: <Summarypage />,
+        element: <Dashboard />,
       },
       {
         path: '/login',
