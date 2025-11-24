@@ -21,4 +21,4 @@ transformers
 scipy
 
 # Chatbot API (Gemini)
-google-generativeai
+google-genai

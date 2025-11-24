@@ -55,7 +55,8 @@ get_text_model_and_tokenizer = _proc_attr("get_text_model_and_tokenizer")
 # Flask App
 # -----------------------------
 app = Flask(__name__)
-CORS(app)
+# FIXED: Restrict CORS to frontend origin (adjust port if needed)
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173"]}})
 
 # -----------------------------
 # Initialize ML models
@@ -98,7 +99,12 @@ if GEMINI_API_KEY:
     except Exception as e:
         LOG.error("Gemini init failed: %s", e)
 else:
-    LOG.warning("Gemini disabled — no API key found")
+    LOG.critical("❌ GEMINI_API_KEY not found in .env! Chat features will not work.")
+    print("\n" + "="*50)
+    print("CRITICAL ERROR: GEMINI_API_KEY is missing.")
+    print("Please create a .env file in the backend directory with:")
+    print("GEMINI_API_KEY=your_api_key_here")
+    print("="*50 + "\n")
 
 
 # -----------------------------
@@ -120,7 +126,8 @@ def _safe_b64_to_bgr_image(b64string):
         arr = np.frombuffer(raw, np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         return img
-    except Exception:
+    except Exception as e:
+        LOG.error(f"Image decode error: {e}")
         return None
 
 
@@ -167,24 +174,33 @@ def api_process_face():
 # ---------------------------------------------------
 @app.route("/api/process_text", methods=["POST"])
 def api_process_text():
+    print("\n===== /api/process_text endpoint hit =====", flush=True)
     try:
         payload = request.get_json(silent=True) or {}
         text = payload.get("text", "")
+        print(f"Received text payload: '{text}'", flush=True)
 
         if not process_text:
             return jsonify({"status": "error", "error": "process_text missing"}), 500
 
-        res = process_text(text)
+        # Pass gemini_model to process_text for AI-powered analysis
+        res = process_text(text, gemini_model=gemini_model)
+        print(f"process_text returned: {res}", flush=True)
 
-        return jsonify({
+        response_data = {
             "status": "success",
             "stress_score": res.get("stress_score"),
             "emotion": res.get("emotion"),
             "detected_emotions": res.get("detected_emotions"),
             "dashboard_data": res.get("dashboard_data"),
-        })
+            "helpline_trigger": res.get("helpline_trigger", False),
+        }
+        print(f"Sending response: {response_data}", flush=True)
+        print("===== /api/process_text complete =====\n", flush=True)
+        return jsonify(response_data)
 
     except Exception as e:
+        print(f"ERROR in api_process_text: {e}", flush=True)
         LOG.exception("process_text error: %s", e)
         return jsonify({"status": "error", "error": str(e)}), 500
 

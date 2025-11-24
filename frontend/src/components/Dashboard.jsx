@@ -7,7 +7,6 @@ import {
   doc,
   query,
   orderBy,
-  limit,
   onSnapshot,
 } from "firebase/firestore";
 
@@ -65,6 +64,18 @@ const EMOTION_COLORS = {
 const DEFAULT_COLOR = "#D1D5DB";
 
 // ------------------ ANIMATION ------------------
+const toJsDate = (ts) => {
+  if (!ts) return new Date(0);
+  // Safe Firestore Timestamp check
+  if (ts && typeof ts.toDate === "function") {
+    return ts.toDate();
+  }
+  // If it's already a Date
+  if (ts instanceof Date) return ts;
+  // If it's a string or number
+  return new Date(ts);
+};
+
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.07 } },
@@ -121,7 +132,8 @@ export default function Dashboard() {
     if (!userLoggedIn || !currentUser) return;
 
     const sessionsRef = collection(db, `users/${currentUser.uid}/sessions`);
-    const q = query(sessionsRef, orderBy("timestamp", "desc"), limit(20));
+    // FIXED: Removed limit(20) to show all sessions
+    const q = query(sessionsRef, orderBy("timestamp", "desc"));
 
     const unsub = onSnapshot(q, (snapshot) => {
       const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -133,7 +145,49 @@ export default function Dashboard() {
   }, [userLoggedIn, currentUser]);
 
   // -----------------------------------------------------
-  // LOAD REAL-TIME STRESS SCORES
+  // CALCULATE PIE CHART FROM LATEST SESSION
+  // -----------------------------------------------------
+  useEffect(() => {
+    if (sessions.length === 0) {
+      setEmotionPie([]);
+      return;
+    }
+
+    const latest = sessions[0];
+    // Use dashboard_data if available
+    const dataMap = latest.dashboard_data || latest.detected_emotions;
+
+    if (!dataMap) {
+      setEmotionPie([]);
+      return;
+    }
+
+    // Convert to array { name, value }
+    const rawData = Object.entries(dataMap).map(([name, value]) => ({
+      name,
+      value: Number(value)
+    }));
+
+    // Sort by value desc
+    rawData.sort((a, b) => b.value - a.value);
+
+    // Take top 7
+    const top = rawData.slice(0, 7);
+
+    // Normalize to 100% for display
+    const total = top.reduce((sum, item) => sum + item.value, 0);
+    const finalData = top.map(item => ({
+      ...item,
+      value: total > 0 ? Number(((item.value / total) * 100).toFixed(1)) : 0
+    }));
+
+    setEmotionPie(finalData);
+
+  }, [sessions]);
+
+
+  // -----------------------------------------------------
+  // LOAD REAL-TIME STRESS SCORES (Line Chart)
   // -----------------------------------------------------
   useEffect(() => {
     if (!userLoggedIn || !currentUser) return;
@@ -146,8 +200,8 @@ export default function Dashboard() {
 
       // ---------- Fix sorting ----------
       all.sort((a, b) => {
-        const t1 = a.timestamp?.toDate ? a.timestamp.toDate() : new Date();
-        const t2 = b.timestamp?.toDate ? b.timestamp.toDate() : new Date();
+        const t1 = toJsDate(a.timestamp);
+        const t2 = toJsDate(b.timestamp);
         return t1 - t2;
       });
 
@@ -158,18 +212,23 @@ export default function Dashboard() {
 
       if (facial.length > 0) {
         let bucket = [];
-        let binStart = facial[0].timestamp.toDate().getTime();
+        let binStart = toJsDate(facial[0].timestamp).getTime();
 
         for (const item of facial) {
-          const ts = item.timestamp.toDate().getTime();
+          const ts = toJsDate(item.timestamp).getTime();
 
           if (ts - binStart <= binMs) {
             bucket.push(item.score);
           } else {
             if (bucket.length > 0) {
-              const avg = Math.round(bucket.reduce((a, b) => a + b, 0) / bucket.length);
+              const avg = Math.round(
+                bucket.reduce((a, b) => a + b, 0) / bucket.length
+              );
               smoothed.push({
-                time: new Date(binStart).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                time: new Date(binStart).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
                 facial: avg,
                 masterStress: avg,
               });
@@ -181,9 +240,14 @@ export default function Dashboard() {
 
         // final flush
         if (bucket.length > 0) {
-          const avg = Math.round(bucket.reduce((a, b) => a + b, 0) / bucket.length);
+          const avg = Math.round(
+            bucket.reduce((a, b) => a + b, 0) / bucket.length
+          );
           smoothed.push({
-            time: new Date(binStart).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            time: new Date(binStart).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
             facial: avg,
             masterStress: avg,
           });
@@ -191,60 +255,6 @@ export default function Dashboard() {
       }
 
       setFusedData(smoothed);
-
-      // ---------- EMOTION PIE (TOP 7) ----------
-      const latestId = latestSessionIdRef.current;
-      if (!latestId) return;
-
-      const sessionScores = all.filter(
-        (s) => s.sessionId === latestId && s.dashboard_data
-      );
-
-      const agg = {};
-      let frames = 0;
-
-      for (const row of sessionScores) {
-        frames++;
-        for (const [emotion, value] of Object.entries(row.dashboard_data)) {
-          agg[emotion] = (agg[emotion] || 0) + value;
-        }
-      }
-
-      if (frames === 0) {
-        setEmotionPie([]);
-        return;
-      }
-
-      const averaged = {};
-      let total = 0;
-
-      for (const k of Object.keys(agg)) {
-        averaged[k] = agg[k] / frames;
-        total += averaged[k];
-      }
-
-      if (total === 0) {
-        setEmotionPie([]);
-        return;
-      }
-
-      let normalized = Object.keys(averaged).map((k) => ({
-        name: k,
-        value: (averaged[k] / total) * 100,
-      }));
-
-      normalized.sort((a, b) => b.value - a.value);
-
-      const top = normalized.slice(0, 7);
-
-      // rescale
-      const topSum = top.reduce((s, e) => s + e.value, 0);
-      const rescaled = top.map((e) => ({
-        ...e,
-        value: Number(((e.value / topSum) * 100).toFixed(1)),
-      }));
-
-      setEmotionPie(rescaled);
     });
 
     return () => unsub();
@@ -289,9 +299,9 @@ export default function Dashboard() {
           value={
             sessions.length
               ? Math.floor(
-                  sessions.reduce((a, b) => a + (b.averageScore || 0), 0) /
-                    sessions.length
-                ) + "%"
+                sessions.reduce((a, b) => a + (b.averageScore || 0), 0) /
+                sessions.length
+              ) + "%"
               : "—"
           }
           color="green"
@@ -371,15 +381,15 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
-      {/* RECENT SESSIONS */}
+      {/* ALL SESSIONS LIST */}
       <motion.div className="bg-white rounded-xl shadow p-6 mt-8" variants={itemVariants}>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Sessions</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">All Sessions History</h3>
 
         {sessions.length === 0 ? (
           <p className="text-center text-gray-500 py-10">No sessions yet</p>
         ) : (
-          <div className="space-y-4">
-            {sessions.slice(0, 7).map((s) => {
+          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+            {sessions.map((s) => {
               const info = getStressLevelInfo(s.averageScore);
               return (
                 <div

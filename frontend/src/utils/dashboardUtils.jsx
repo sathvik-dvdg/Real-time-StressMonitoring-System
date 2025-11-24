@@ -96,9 +96,15 @@ export const formatTimestamp = (timestamp) => {
   if (!timestamp) return "N/A";
 
   try {
-    if (timestamp.toDate) {
+    // Check for Firestore Timestamp (has toDate method)
+    if (timestamp && typeof timestamp.toDate === 'function') {
       return timestamp.toDate();
     }
+    // Check if it's already a Date object
+    if (timestamp instanceof Date) {
+      return timestamp;
+    }
+    // Fallback for strings/numbers
     return new Date(timestamp);
   } catch (error) {
     console.error("Error formatting timestamp:", error);
@@ -180,7 +186,7 @@ export const generateInsights = (stats, trends) => {
       message: `Your stress levels have increased by ${trends.trendPercentage.toFixed(
         1
       )}% in recent sessions. Consider stress management techniques.`,
-    }); // <-- ✅ FIXED: Removed stray 's'
+    });
   }
 
   if (stats.averageStress < 30) {
@@ -195,7 +201,7 @@ export const generateInsights = (stats, trends) => {
       message:
         "Your average stress levels are quite high. Consider implementing relaxation techniques.",
     });
-  } // <-- ✅ FIXED: Removed stray 's'
+  }
 
   if (stats.totalSessions > 10) {
     insights.push({

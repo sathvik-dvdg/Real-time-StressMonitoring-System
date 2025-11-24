@@ -20,9 +20,9 @@ Modal.setAppElement('#root');
 // CONFIG
 // ================================
 const SESSION_DURATION_SECONDS = 120;     // 2 minutes
-const CAPTURE_INTERVAL_MS = 50;           // ~20 FPS
+const CAPTURE_INTERVAL_MS = 200;          // ~5 FPS (reduced to avoid MediaPipe timestamp errors)
 const SMOOTHING_WINDOW = 5;
-const MAX_PENDING_REQUESTS = 2;
+const MAX_PENDING_REQUESTS = 1;           // reduce concurrent requests
 const BACKEND_ERROR_COOLDOWN_MS = 2000;   // when backend 500 occurs, pause sends for this long
 const AXIOS_TIMEOUT_MS = 8000;            // request timeout
 
@@ -60,8 +60,14 @@ export default function SessionPage() {
   // ================================
   // START SESSION
   // ================================
+  const [cameraError, setCameraError] = useState(null);
+
+  // ================================
+  // START SESSION
+  // ================================
   const startSession = async () => {
     sessionIdRef.current = uuidv4();
+    setCameraError(null);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -91,12 +97,25 @@ export default function SessionPage() {
           }
         });
 
-        await videoRef.current.play().catch(() => {});
+        await videoRef.current.play().catch(() => { });
         setIsCameraReady(true);
       }
     } catch (err) {
       console.error("Error getting camera:", err);
-      alert("Camera access failed. Check camera permissions and try again.");
+      let errorMessage = "Camera access failed. Please check permissions.";
+
+      if (err.name === 'AbortError' || err.message.includes('Timeout')) {
+        errorMessage = "Camera timed out. It might be in use by another app. Close other apps and try again.";
+      } else if (err.name === 'NotAllowedError') {
+        errorMessage = "Camera permission denied. Please allow camera access in your browser settings.";
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = "No camera found. Please ensure your camera is connected.";
+      } else if (err.name === 'NotReadableError') {
+        errorMessage = "Camera is currently in use by another application.";
+      }
+
+      setCameraError(errorMessage);
+      alert(errorMessage);
     }
   };
 
@@ -118,6 +137,111 @@ export default function SessionPage() {
   // ================================
   // STOP SESSION
   // ================================
+  // ================================
+  // SAVE SESSION TO FIRESTORE (Refactored for reuse)
+  // ================================
+  const saveSessionToFirestore = async () => {
+    if (stressScores.length === 0) return;
+
+    const sessionScoreSum = stressScores.reduce((s, item) => s + (item.score || 0), 0);
+    const avg = Math.round(sessionScoreSum / stressScores.length);
+
+    // Aggregate dashboard_data
+    const dashboardAgg = {};
+    let frames = 0;
+
+    stressScores.forEach((frame) => {
+      if (frame.dashboard_data) {
+        frames++;
+        Object.entries(frame.dashboard_data).forEach(([k, v]) => {
+          dashboardAgg[k] = (dashboardAgg[k] || 0) + Number(v || 0);
+        });
+      }
+    });
+
+    let dashboard_data = null;
+    if (frames > 0) {
+      dashboard_data = {};
+      let total = 0;
+      Object.entries(dashboardAgg).forEach(([k, v]) => {
+        dashboard_data[k] = v / frames;
+        total += dashboard_data[k];
+      });
+
+      if (total > 0) {
+        Object.keys(dashboard_data).forEach((k) => {
+          dashboard_data[k] = Number((dashboard_data[k] / total).toFixed(4));
+        });
+      }
+    }
+
+    if (userLoggedIn && currentUser) {
+      try {
+        const batch = writeBatch(db);
+        const sessionID = sessionIdRef.current;
+        const sessionRef = doc(db, 'users', userId, 'sessions', sessionID);
+
+        // 1. Save Session Document
+        batch.set(sessionRef, {
+          averageScore: avg,
+          timestamp: serverTimestamp(),
+          scoresCount: stressScores.length,
+          readingsCount: stressScores.length,
+          dashboard_data,
+          sessionId: sessionID,
+        });
+
+        // 2. Update Meta Summary
+        const summaryRef = doc(db, 'users', userId, 'meta', 'summary');
+        batch.set(summaryRef, {
+          totalSessions: increment(1),
+          totalReadings: increment(stressScores.length)
+        }, { merge: true });
+
+        // 3. Save Individual Readings to 'stress_scores' (Sampled 1 per second to save writes)
+        // Assuming ~5 FPS, we take every 5th frame, or just use the timestamp difference
+        const scoresCollectionRef = collection(db, 'users', userId, 'stress_scores');
+
+        // Filter to ~1 reading per second to avoid hitting limits/costs too hard
+        const oneSecond = 1000;
+        let lastSavedTime = 0;
+
+        // Create a base timestamp for the session start (approximate)
+        const sessionStartTime = Date.now() - (stressScores.length * CAPTURE_INTERVAL_MS);
+
+        stressScores.forEach((item, index) => {
+          // Calculate approximate timestamp for this reading
+          const itemTime = sessionStartTime + (index * CAPTURE_INTERVAL_MS);
+
+          if (itemTime - lastSavedTime >= oneSecond) {
+            const docRef = doc(scoresCollectionRef); // Auto-ID
+            batch.set(docRef, {
+              score: item.score,
+              type: 'facial',
+              timestamp: new Date(itemTime), // Save as JS Date (Firestore converts to Timestamp)
+              sessionId: sessionID
+            });
+            lastSavedTime = itemTime;
+          }
+        });
+
+        await batch.commit();
+        console.log("Session and readings saved successfully.");
+      } catch (err) {
+        console.error("Error saving session summary:", err);
+      }
+    }
+  };
+
+  // Keep a ref to the save function so we can call it in cleanup without stale closures
+  const saveSessionRef = useRef(saveSessionToFirestore);
+  useEffect(() => {
+    saveSessionRef.current = saveSessionToFirestore;
+  }, [stressScores, userLoggedIn, currentUser]);
+
+  // ================================
+  // STOP SESSION
+  // ================================
   const stopSession = async () => {
     if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
     if (captureIntervalRef.current) clearInterval(captureIntervalRef.current);
@@ -131,76 +255,7 @@ export default function SessionPage() {
     setSessionActive(false);
     setIsCameraReady(false);
 
-    // ============== PREPARE FINAL SUMMARY =============
-    if (stressScores.length > 0) {
-      const sessionScoreSum = stressScores.reduce((s, item) => s + (item.score || 0), 0);
-      const avg = Math.round(sessionScoreSum / stressScores.length);
-
-      // ----------------------------------------
-      // AGGREGATE dashboard_data for session
-      // ----------------------------------------
-      const dashboardAgg = {};
-      let frames = 0;
-
-      stressScores.forEach((frame) => {
-        if (frame.dashboard_data) {
-          frames++;
-          Object.entries(frame.dashboard_data).forEach(([k, v]) => {
-            dashboardAgg[k] = (dashboardAgg[k] || 0) + Number(v || 0);
-          });
-        }
-      });
-
-      // Normalize dashboard_data
-      let dashboard_data = null;
-      if (frames > 0) {
-        dashboard_data = {};
-        let total = 0;
-        Object.entries(dashboardAgg).forEach(([k, v]) => {
-          dashboard_data[k] = v / frames;
-          total += dashboard_data[k];
-        });
-
-        if (total > 0) {
-          Object.keys(dashboard_data).forEach((k) => {
-            dashboard_data[k] = Number((dashboard_data[k] / total).toFixed(4));
-          });
-        }
-      }
-
-      // ----------------------------------------
-      // WRITE SESSION + META SUMMARY (BATCH)
-      // ----------------------------------------
-      if (userLoggedIn && currentUser) {
-        try {
-          const batch = writeBatch(db);
-
-          const sessionID = sessionIdRef.current;
-          const sessionRef = doc(db, 'users', userId, 'sessions', sessionID);
-
-          batch.set(sessionRef, {
-            averageScore: avg,
-            timestamp: serverTimestamp(),
-            scoresCount: stressScores.length,
-            readingsCount: stressScores.length,
-            dashboard_data,
-            sessionId: sessionID,
-          });
-
-          // META SUMMARY
-          const summaryRef = doc(db, 'users', userId, 'meta', 'summary');
-          batch.set(summaryRef, {
-            totalSessions: increment(1),
-            totalReadings: increment(stressScores.length)
-          }, { merge: true });
-
-          await batch.commit();
-        } catch (err) {
-          console.error("Error saving session summary:", err);
-        }
-      }
-    }
-
+    await saveSessionToFirestore();
     setIsModalOpen(true);
   };
 
@@ -244,7 +299,12 @@ export default function SessionPage() {
       if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
       if (captureIntervalRef.current) clearInterval(captureIntervalRef.current);
       if (streamRef.current) {
-        try { streamRef.current.getTracks().forEach(t => t.stop()); } catch (e) {}
+        try { streamRef.current.getTracks().forEach(t => t.stop()); } catch (e) { }
+      }
+      // Attempt to save if session was active (best effort)
+      // Note: Async calls in cleanup might be cancelled by browser, but Firestore SDK often handles it.
+      if (sessionIdRef.current) {
+        saveSessionRef.current();
       }
     };
   }, []);
@@ -298,17 +358,25 @@ export default function SessionPage() {
 
       if (isBlank) return;
 
-      canvas.toBlob(
-        (blob) => {
-          if (blob && blob.size > 100) { // ensure blob not empty (tiny images often invalid)
-            sendFrameToBackend(blob);
-          } else {
-            // ignore tiny/empty blobs that could trigger downstream errors
-          }
-        },
-        "image/jpeg",
-        0.6
-      );
+      // Use data URL (base64) instead of sending a file blob.
+      // Flask expects either JSON `image`/`frame` or form text fields, not multipart file uploads.
+      try {
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+        if (dataUrl && dataUrl.length > 100) {
+          sendFrameToBackend(dataUrl);
+        }
+      } catch (err) {
+        // fallback: try blob path if toDataURL fails
+        canvas.toBlob(
+          (blob) => {
+            if (blob && blob.size > 100) {
+              sendFrameToBackend(blob);
+            }
+          },
+          "image/jpeg",
+          0.6
+        );
+      }
     } catch (err) {
       console.error("captureAndSendFrame error:", err);
     }
@@ -317,7 +385,18 @@ export default function SessionPage() {
   // ================================
   // SEND FRAME (with robust error handling)
   // ================================
-  const sendFrameToBackend = async (blob) => {
+  const blobToDataUrl = (b) => new Promise((resolve, reject) => {
+    try {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = (e) => reject(e);
+      reader.readAsDataURL(b);
+    } catch (e) {
+      reject(e);
+    }
+  });
+
+  const sendFrameToBackend = async (frameInput) => {
     // Check backend cooldown
     const now = Date.now();
     if (backendDown && now - lastBackendErrorAt.current < BACKEND_ERROR_COOLDOWN_MS) {
@@ -326,14 +405,45 @@ export default function SessionPage() {
 
     pendingRequests.current++;
 
-    const form = new FormData();
-    form.append("frame", blob, `${Date.now()}.jpg`);
-    form.append("userId", userId);
-    form.append("sessionId", sessionIdRef.current);
-    form.append("timestamp", new Date().toISOString());
+    // Prepare payload. Prefer sending JSON with `image` field containing a base64 data URL
+    // Backend (`app.py`) checks JSON or form fields named `image` or `frame`, or raw body.
+    let payload = null;
+    let headers = {};
+
+    if (typeof frameInput === 'string') {
+      // data URL or plain base64 string
+      payload = {
+        image: frameInput,
+        userId,
+        sessionId: sessionIdRef.current,
+        timestamp: new Date().toISOString(),
+      };
+      headers['Content-Type'] = 'application/json';
+    } else {
+      // blob fallback: convert to data URL then send JSON
+      try {
+        const dataUrl = await blobToDataUrl(frameInput);
+        payload = {
+          image: dataUrl,
+          userId,
+          sessionId: sessionIdRef.current,
+          timestamp: new Date().toISOString(),
+        };
+        headers['Content-Type'] = 'application/json';
+      } catch (e) {
+        // As a last resort, send multipart/form-data with a file field named `frame`.
+        const form = new FormData();
+        form.append("frame", frameInput, `${Date.now()}.jpg`);
+        form.append("userId", userId);
+        form.append("sessionId", sessionIdRef.current);
+        form.append("timestamp", new Date().toISOString());
+        payload = form;
+        // Let axios set Content-Type for multipart
+      }
+    }
 
     try {
-      const res = await axios.post("http://localhost:5000/api/process_face", form, { timeout: AXIOS_TIMEOUT_MS });
+      const res = await axios.post("http://localhost:5000/api/process_face", payload, { timeout: AXIOS_TIMEOUT_MS, headers });
       const data = res.data;
 
       // backend-side "processing" (if you send frames faster than model) => ignore
@@ -447,7 +557,7 @@ export default function SessionPage() {
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
   const timerPercentage = (sessionTime / SESSION_DURATION_SECONDS) * 100;
@@ -524,6 +634,20 @@ export default function SessionPage() {
                   ref={canvasRef}
                   className="absolute top-0 left-0 w-full h-full pointer-events-none max-w-md left-1/2 -translate-x-1/2"
                 />
+
+                {cameraError && !sessionActive && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-lg z-10">
+                    <div className="text-center p-4">
+                      <p className="text-red-400 font-bold mb-2">{cameraError}</p>
+                      <button
+                        onClick={startSession}
+                        className="px-4 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100"
+                      >
+                        Retry Camera
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {faceMissing && sessionActive && (
                   <div className="absolute inset-0 flex items-center justify-center">

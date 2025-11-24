@@ -19,6 +19,7 @@ Notes:
 import os
 import math
 import logging
+import sys  # Added for stdout flushing
 from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
@@ -51,7 +52,8 @@ NUM_EMOTIONS = len(EMOTION_CLASSES)
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "model")
 SCALER_PATH = os.path.join(MODEL_DIR, "scaler.joblib")
 FACIAL_CLF_PATH = os.path.join(MODEL_DIR, "stress_classifier.joblib")
-TEXT_MODEL_NAME = "distilroberta-base"  # fallback name if model available locally or via HF
+# Text model no longer needed - using Gemini API for text analysis
+# TEXT_MODEL_NAME = "j-hartmann/emotion-english-distilroberta-base"
 
 # globals for lazy-loaded models
 _face_mesh = None
@@ -118,39 +120,121 @@ def get_face_mesh():
 def _try_load_joblib_models():
     global _scaler, _facial_clf
     if joblib is None:
+        logger.warning("Joblib not installed. Skipping ML model loading.")
         return
-    if _scaler is None and os.path.exists(SCALER_PATH):
-        try:
-            _scaler = joblib.load(SCALER_PATH)
-            logger.info("Loaded scaler.joblib")
-        except Exception as e:
-            logger.warning("Failed to load scaler.joblib: %s", e)
-            _scaler = None
-    if _facial_clf is None and os.path.exists(FACIAL_CLF_PATH):
-        try:
-            _facial_clf = joblib.load(FACIAL_CLF_PATH)
-            logger.info("Loaded stress_classifier.joblib")
-        except Exception as e:
-            logger.warning("Failed to load stress_classifier.joblib: %s", e)
-            _facial_clf = None
+    if _scaler is None:
+        if os.path.exists(SCALER_PATH):
+            try:
+                _scaler = joblib.load(SCALER_PATH)
+                logger.info(f"✅ Loaded scaler from {SCALER_PATH}")
+            except Exception as e:
+                logger.error(f"❌ Failed to load scaler.joblib: {e}")
+                _scaler = None
+        else:
+            logger.warning(f"⚠️ Scaler file not found at {SCALER_PATH}")
+
+    if _facial_clf is None:
+        if os.path.exists(FACIAL_CLF_PATH):
+            try:
+                _facial_clf = joblib.load(FACIAL_CLF_PATH)
+                logger.info(f"✅ Loaded stress_classifier from {FACIAL_CLF_PATH}")
+            except Exception as e:
+                logger.error(f"❌ Failed to load stress_classifier.joblib: {e}")
+                _facial_clf = None
+        else:
+            logger.warning(f"⚠️ Classifier file not found at {FACIAL_CLF_PATH}")
 
 def get_text_model_and_tokenizer():
-    """Lazy init of tokenizer + text model if transformers available. Returns (tokenizer, model)."""
-    global _text_tokenizer, _text_model
-    if _text_tokenizer is not None and _text_model is not None:
-        return _text_tokenizer, _text_model
-    if torch is None or AutoTokenizer is None:
-        logger.info("transformers/torch not available; text model disabled.")
-        return None, None
+    """Deprecated - text analysis now uses Gemini API. Kept for compatibility."""
+    # Updated: 2025-01-25 02:11 - Removed model loading, using Gemini instead
+    logger.info("Text model loading skipped - using Gemini API for text analysis")
+    return None, None
+
+def analyze_text_with_gemini(text: str, gemini_model) -> Optional[Dict[str, Any]]:
+    """Use Gemini to analyze text for emotions and stress. Returns None if fails."""
+    # Write to file since waitress suppresses print
+    with open('debug.log', 'a') as f:
+        f.write(f"\n[GEMINI] analyze_text_with_gemini called with text='{text}'\n")
+        f.flush()
+    
+    if not gemini_model:
+        with open('debug.log', 'a') as f:
+            f.write(f"[GEMINI] FAILED: gemini_model is None\n")
+            f.flush()
+        return None
+    if not text:
+        with open('debug.log', 'a') as f:
+            f.write(f"[GEMINI] FAILED: text is empty\n")
+            f.flush()
+        return None
+    
     try:
-        _text_tokenizer = AutoTokenizer.from_pretrained(TEXT_MODEL_NAME)
-        _text_model = AutoModelForSequenceClassification.from_pretrained(TEXT_MODEL_NAME)
-        _text_model.eval()
-        logger.info("Text model and tokenizer loaded: %s", TEXT_MODEL_NAME)
+        prompt = f'''Analyze this text for emotional content and stress level.
+
+Text: "{text}"
+
+Provide a JSON response with:
+1. stress_score: integer 0-100 (0=calm, 100=extreme crisis)
+2. emotion: one of [joy, sadness, anger, fear, surprise, disgust, neutral]
+3. helpline_trigger: boolean (true if mentions self-harm, suicide, severe distress)
+4. emotion_distribution: object with percentages for all 7 emotions (must sum to ~100)
+
+Example:
+{{"stress_score": 75, "emotion": "sadness", "helpline_trigger": false, "emotion_distribution": {{"joy": 0, "sadness": 70, "anger": 10, "fear": 15, "surprise": 0, "disgust": 0, "neutral": 5}}}}
+
+Respond ONLY with valid JSON, no markdown formatting.'''
+        
+        with open('debug.log', 'a') as f:
+            f.write(f"[GEMINI] Calling Gemini API...\n")
+            f.flush()
+            
+        response = gemini_model.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt
+        )
+        
+        # Extract JSON from response
+        response_text = response.text.strip()
+        with open('debug.log', 'a') as f:
+            f.write(f"[GEMINI] Raw response: {response_text[:500]}\n")
+            f.flush()
+        
+        # Remove markdown code blocks if present
+        if response_text.startswith('```'):
+            lines = response_text.split('\n')
+            response_text = '\n'.join(lines[1:-1])
+            with open('debug.log', 'a') as f:
+                f.write(f"[GEMINI] After removing markdown\n")
+                f.flush()
+        
+        import json
+        result = json.loads(response_text)
+        with open('debug.log', 'a') as f:
+            f.write(f"[GEMINI] Parsed JSON: {result}\n")
+            f.flush()
+        
+        # Validate structure
+        required_keys = ['stress_score', 'emotion', 'helpline_trigger', 'emotion_distribution']
+        if all(k in result for k in required_keys):
+            with open('debug.log', 'a') as f:
+                f.write(f"[GEMINI] SUCCESS: stress={result['stress_score']}, emotion={result['emotion']}, helpline={result['helpline_trigger']}\n")
+                f.flush()
+            logger.info(f"Gemini analyzed text: stress={result['stress_score']}, emotion={result['emotion']}, helpline={result['helpline_trigger']}")
+            return result
+        else:
+            missing = [k for k in required_keys if k not in result]
+            with open('debug.log', 'a') as f:
+                f.write(f"[GEMINI] FAILED: Missing keys: {missing}\n")
+                f.flush()
+            logger.warning(f"Gemini response missing required keys: {result}")
+            return None
+            
     except Exception as e:
-        logger.warning("Failed to load text model/tokenizer: %s", e)
-        _text_tokenizer, _text_model = None, None
-    return _text_tokenizer, _text_model
+        with open('debug.log', 'a') as f:
+            f.write(f"[GEMINI] EXCEPTION: {type(e).__name__}: {e}\n")
+            f.flush()
+        logger.warning(f"Gemini text analysis failed: {e}")
+        return None
 
 # -------------------
 # Facial feature extraction (heuristic + optional model)
@@ -267,57 +351,102 @@ def _text_to_raw_dist(text: str) -> Dict[str, float]:
     """Return raw (unnormalized) scores for EMOTION_CLASSES from text."""
     if not text or not text.strip():
         return {k: 1.0 if k == "neutral" else 0.0 for k in EMOTION_CLASSES}
+    text_input = text
     text = text.lower()
     # Try transformer if available
     tokenizer, model = get_text_model_and_tokenizer()
     if tokenizer and model and torch:
         try:
-            inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=128)
+            inputs = tokenizer(text_input, return_tensors="pt", truncation=True, padding=True, max_length=128)
             for k, v in inputs.items():
                 if isinstance(v, torch.Tensor):
                     inputs[k] = v.to(next(model.parameters()).device)
             with torch.no_grad():
-                logits = model(**inputs).logits
-                # If logits map to same number of emotions, take softmax
-                if logits is not None:
-                    logits = logits[0].cpu().numpy()
-                    # if model dimension matches NUM_EMOTIONS
-                    if logits.shape[0] >= NUM_EMOTIONS:
-                        probs = np.exp(logits) / np.exp(logits).sum()
-                        mapping = {EMOTION_CLASSES[i]: float(probs[i]) for i in range(NUM_EMOTIONS)}
-                        return mapping
+                outputs = model(**inputs)
+                logits = outputs.logits[0].cpu().numpy()
+                
+                # j-hartmann model outputs: ['anger', 'disgust', 'fear', 'joy', 'neutral', 'sadness', 'surprise']
+                # Our EMOTION_CLASSES: ["joy", "sadness", "anger", "fear", "surprise", "disgust", "neutral"]
+                model_labels = ['anger', 'disgust', 'fear', 'joy', 'neutral', 'sadness', 'surprise']
+                
+                # Apply softmax to get probabilities
+                probs = np.exp(logits) / np.exp(logits).sum()
+                
+                # Map model output to our EMOTION_CLASSES format
+                # The model uses the same emotion names, so we can directly map them
+                mapping = {}
+                for i, model_label in enumerate(model_labels):
+                    mapping[model_label] = float(probs[i])
+                
+                logger.info(f"Text: '{text_input[:50]}...' -> Model emotions: {mapping}")
+                return mapping
         except Exception as e:
-            logger.info("Text transformer inference failed, falling back to keyword heuristic: %s", e)
+            logger.warning("Text transformer inference failed, falling back to keyword heuristic: %s", e)
     # Simple keyword heuristic fallback
     scores = {k: 0.0 for k in EMOTION_CLASSES}
     kw_map = {
-        "joy": ["happy", "joy", "glad", "great", "awesome", "excited"],
-        "sadness": ["sad", "depressed", "unhappy", "sorrow", "mourn"],
-        "anger": ["angry", "mad", "furious", "rage", "irritat"],
-        "fear": ["afraid", "scared", "fear", "panic", "nervous", "anxious"],
-        "surprise": ["wow", "surprising", "surprise", "shocked"],
-        "disgust": ["disgust", "gross", "yuck", "nasty"],
-        "neutral": ["ok", "fine", "neutral", "normal", "alright"]
+        "joy": ["happy", "joy", "glad", "great", "awesome", "excited", "good", "love", "wonderful", "fantastic"],
+        "sadness": ["sad", "depressed", "unhappy", "sorrow", "mourn", "grief", "cry", "lonely", "heartbroken", "down"],
+        "anger": ["angry", "mad", "furious", "rage", "irritat", "hate", "annoy", "frustrat"],
+        "fear": ["afraid", "scared", "fear", "panic", "nervous", "anxious", "worried", "terrified", "dread"],
+        "surprise": ["wow", "surprising", "surprise", "shocked", "amazing", "unbelievable"],
+        "disgust": ["disgust", "gross", "yuck", "nasty", "revolting", "sick"],
+        "neutral": ["ok", "fine", "neutral", "normal", "alright", "okay"]
     }
+    
+    # Extra stress-specific mapping (maps to negative emotions)
+    stress_map = {
+        "stress": ["stress", "overwhelm", "pressure", "tension", "burnout", "exhausted", "can't take it", "too much"],
+        "anxiety": ["anxious", "panic", "nervous", "restless", "unease", "worry"]
+    }
+
+    text_lower = text.lower()
+    
     for label, keys in kw_map.items():
         for k in keys:
-            if k in text:
+            if k in text_lower:
                 scores[label] += 1.0
+
+    # Map stress keywords to fear/sadness/anger to boost stress score
+    for label, keys in stress_map.items():
+        for k in keys:
+            if k in text_lower:
+                scores["fear"] += 0.5
+                scores["sadness"] += 0.5
+                scores["anger"] += 0.2
+
     if sum(scores.values()) == 0.0:
         scores["neutral"] = 1.0
     return scores
+
+def _check_sensitive_content(text: str) -> bool:
+    """Check for crisis/suicide keywords."""
+    if not text: 
+        return False
+    text = text.lower()
+    crisis_keywords = [
+        "suicide", "kill myself", "want to die", "end it all", "hurt myself", 
+        "better off dead", "death", "take my own life", "suicidal"
+    ]
+    for k in crisis_keywords:
+        if k in text:
+            return True
+    return False
 
 def _predict_textual_stress_from_dist(raw_dist: Dict[str, float]) -> int:
     """Heuristic mapping of emotion distribution to stress score 0..100."""
     # higher sadness/anger/fear => higher stress, joy/neutral reduce
     total = sum(max(0.0, v) for v in raw_dist.values()) or 1.0
     normalized = {k: v / total for k, v in raw_dist.items()}
+    
+    # Enhanced stress calculation with better weights
     stress = (
-        normalized.get("sadness", 0.0) * 0.5 +
-        normalized.get("anger", 0.0) * 0.4 +
-        normalized.get("fear", 0.0) * 0.45 +
-        normalized.get("disgust", 0.0) * 0.2
-    ) - normalized.get("joy", 0.0) * 0.25 - normalized.get("neutral", 0.0) * 0.15
+        normalized.get("sadness", 0.0) * 0.6 +
+        normalized.get("anger", 0.0) * 0.55 +
+        normalized.get("fear", 0.0) * 0.65 +
+        normalized.get("disgust", 0.0) * 0.3
+    ) - normalized.get("joy", 0.0) * 0.35 - normalized.get("neutral", 0.0) * 0.2
+    
     stress = max(0.0, stress)
     stress = min(1.0, stress)
     return int(round(stress * 100))
@@ -367,27 +496,78 @@ def process_facial_frame(frame_bgr: Any, last_probs: Optional[List[float]] = Non
         logger.exception("Error in process_facial_frame: %s", e)
         return {"status": "error", "error": str(e)}
 
-def process_text(text: str) -> Dict[str, Any]:
+def process_text(text: str, gemini_model=None) -> Dict[str, Any]:
     """
     Called by app.py's /api/process_text.
     Returns:
-      status, stress_score, detected_emotions (list), dashboard_data
+      status, stress_score, detected_emotions (list), dashboard_data, helpline_trigger
     """
     try:
+        print(f"\n===== PROCESS_TEXT CALLED =====", flush=True)
+        print(f"Input text: '{text}'", flush=True)
+        
         if text is None:
             return {"status": "error", "error": "No text provided"}
-        raw = _text_to_raw_dist(text)
-        dashboard_data = _normalize_dist(raw)
-        stress_score = _predict_textual_stress_from_dist(raw)
+        
+        logger.info(f"Processing text: '{text}'")
+        
+        # Try Gemini analysis first
+        gemini_result = analyze_text_with_gemini(text, gemini_model)
+        
+        if gemini_result:
+            # Gemini succeeded - use its results
+            print(f"Using Gemini analysis", flush=True)
+            logger.info("Using Gemini analysis")
+            
+            stress_score = gemini_result.get('stress_score', 0)
+            helpline_trigger = bool(gemini_result.get('helpline_trigger', False))
+            emotion = gemini_result.get('emotion', 'neutral')
+            dashboard_data = gemini_result.get('emotion_distribution', {})
+            
+            # Ensure dashboard_data has all emotions
+            for emotion_class in EMOTION_CLASSES:
+                if emotion_class not in dashboard_data:
+                    dashboard_data[emotion_class] = 0.0
+            
+        else:
+            # Gemini failed - fall back to keyword-based analysis
+            print(f"Gemini failed, falling back to keyword analysis", flush=True)
+            logger.info("Gemini failed, falling back to keyword analysis")
+            
+            # Check for sensitive content
+            helpline_trigger = _check_sensitive_content(text)
+            
+            raw = _text_to_raw_dist(text)
+            dashboard_data = _normalize_dist(raw)
+            stress_score = _predict_textual_stress_from_dist(raw)
+            
+            # If helpline triggered, force high stress
+            if helpline_trigger:
+                stress_score = max(stress_score, 95)
+            
+            emotion = _dominant_label(dashboard_data)
+        
+        print(f"Helpline trigger: {helpline_trigger}", flush=True)
+        print(f"Stress score: {stress_score}", flush=True)
+        print(f"Emotion: {emotion}", flush=True)
+        logger.info(f"Helpline trigger: {helpline_trigger}, Stress: {stress_score}, Emotion: {emotion}")
+        
         # top detected emotions by percent > 10%
         detected = [k for k, v in sorted(dashboard_data.items(), key=lambda kv: kv[1], reverse=True) if v > 10.0][:3]
-        return {
+        
+        result = {
             "status": "success",
             "stress_score": int(stress_score),
             "detected_emotions": list(detected),
             "dashboard_data": {k: float(v) for k, v in dashboard_data.items()},
-            "emotion": _dominant_label(dashboard_data)
+            "emotion": str(emotion),
+            "helpline_trigger": bool(helpline_trigger)  # Ensure it's always boolean
         }
+        print(f"Final result: {result}", flush=True)
+        print(f"===== PROCESS_TEXT COMPLETE =====\n", flush=True)
+        logger.info(f"Final result: {result}")
+        return result
     except Exception as e:
+        print(f"ERROR in process_text: {e}", flush=True)
         logger.exception("Error in process_text: %s", e)
         return {"status": "error", "error": str(e)}
