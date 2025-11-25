@@ -21,6 +21,9 @@ import math
 import logging
 import sys  # Added for stdout flushing
 from typing import Any, Dict, List, Optional, Tuple
+from math import hypot
+import random
+from collections import defaultdict
 
 import cv2
 import numpy as np
@@ -46,14 +49,31 @@ logger.setLevel(logging.INFO)
 # -------------------
 # Config & constants
 # -------------------
-EMOTION_CLASSES = ["joy", "sadness", "anger", "fear", "surprise", "disgust", "neutral"]
+# Core classes order (Must match training order)
+EMOTION_CLASSES = ["happy", "sad", "angry", "fear", "surprise", "disgust", "neutral"]
 NUM_EMOTIONS = len(EMOTION_CLASSES)
 
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "model")
-SCALER_PATH = os.path.join(MODEL_DIR, "scaler.joblib")
-FACIAL_CLF_PATH = os.path.join(MODEL_DIR, "stress_classifier.joblib")
-# Text model no longer needed - using Gemini API for text analysis
-# TEXT_MODEL_NAME = "j-hartmann/emotion-english-distilroberta-base"
+# Updated file names as per user request
+SCALER_PATH = os.path.join(os.path.dirname(__file__), "emotion_scaler.joblib")
+FACIAL_CLF_PATH = os.path.join(os.path.dirname(__file__), "emotion_classifier.joblib")
+
+# W_Stress: Stress Weight (0.0 to 1.0) based on Arousal-Valence Model
+# Order: [happy, sad, angry, fear, surprise, disgust, neutral]
+STRESS_WEIGHTS = np.array([0.00, 0.60, 0.70, 1.00, 0.50, 0.80, 0.20])
+
+# Mapping 7 core classes to 27 dashboard visualization buckets
+EMOTION_MAPPING = {
+    "happy": ["joy", "amusement", "approval", "optimism", "gratitude"],
+    "sad": ["sadness", "grief", "remorse", "disappointment"],
+    "angry": ["anger", "annoyance"],
+    "fear": ["fear", "nervousness"],
+    "surprise": ["surprise", "realization", "curiosity"],
+    "disgust": ["disgust"],
+    "neutral": ["neutral", "relief", "confusion"]
+}
+
+ALPHA = 0.3 # Temporal Smoothing Factor (0.0 to 1.0)
 
 # globals for lazy-loaded models
 _face_mesh = None
@@ -101,7 +121,7 @@ def try_load_facial_model():
     if _face_mesh is None:
         mp_face_mesh = mp.solutions.face_mesh
         _face_mesh = mp_face_mesh.FaceMesh(
-            static_image_mode=False,
+            static_image_mode=True,  # Changed to True for stateless REST API
             max_num_faces=1,
             refine_landmarks=True,
             min_detection_confidence=0.5,
@@ -137,9 +157,9 @@ def _try_load_joblib_models():
         if os.path.exists(FACIAL_CLF_PATH):
             try:
                 _facial_clf = joblib.load(FACIAL_CLF_PATH)
-                logger.info(f"✅ Loaded stress_classifier from {FACIAL_CLF_PATH}")
+                logger.info(f"✅ Loaded emotion_classifier from {FACIAL_CLF_PATH}")
             except Exception as e:
-                logger.error(f"❌ Failed to load stress_classifier.joblib: {e}")
+                logger.error(f"❌ Failed to load emotion_classifier.joblib: {e}")
                 _facial_clf = None
         else:
             logger.warning(f"⚠️ Classifier file not found at {FACIAL_CLF_PATH}")
@@ -237,112 +257,83 @@ Respond ONLY with valid JSON, no markdown formatting.'''
         return None
 
 # -------------------
-# Facial feature extraction (heuristic + optional model)
+# Facial feature extraction (Strict Feature Helper Functions)
 # -------------------
-def _extract_landmarks_and_features(image_bgr: np.ndarray) -> Tuple[List[List[float]], Dict[str, float]]:
-    """
-    Runs MediaPipe FaceMesh and returns:
-      - landmarks: list of [x,y] normalized floats (0..1)
-      - features: dict containing ear_left, ear_right, mar (mouth aspect ratio)
-    """
-    mesh = get_face_mesh()
-    if mesh is None or image_bgr is None:
-        return [], {}
-    try:
-        img_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-    except Exception:
-        return [], {}
-    results = mesh.process(img_rgb)
-    if not results or not results.multi_face_landmarks:
-        return [], {}
-    landmarks_mp = results.multi_face_landmarks[0].landmark
-    # produce normalized landmark list
-    lm_list = [[float(round(lm.x, 6)), float(round(lm.y, 6))] for lm in landmarks_mp]
-    h, w = image_bgr.shape[:2]
-    # helper to get point
-    def _pt(idx):
-        if idx < len(landmarks_mp):
-            p = landmarks_mp[idx]
-            return (float(p.x), float(p.y))
-        return (0.0, 0.0)
-    # approximate eye aspect ratio (EAR) using known mediapipe indices
-    def _ear(idxs):
-        try:
-            pts = [_pt(i) for i in idxs]
-            # convert normalized to pixel coords for distance calculation to be scale-invariant similarly
-            pts_px = [(x * w, y * h) for (x, y) in pts]
-            A = math.dist(pts_px[1], pts_px[5])
-            B = math.dist(pts_px[2], pts_px[4])
-            C = math.dist(pts_px[0], pts_px[3])
-            if C == 0.0:
-                return 0.0
-            return (A + B) / (2.0 * C)
-        except Exception:
-            return 0.0
-    left_eye_idxs = [33, 160, 158, 133, 153, 144]
-    right_eye_idxs = [263, 387, 385, 362, 380, 373]
-    ear_l = _ear(left_eye_idxs)
-    ear_r = _ear(right_eye_idxs)
-    # mouth aspect ratio (MAR) approximate: vertical between upper (13) and lower (14) over horizontal (78-308)
-    try:
-        up = _pt(13)
-        low = _pt(14)
-        left_m = _pt(78)
-        right_m = _pt(308)
-        v = math.dist((up[0] * w, up[1] * h), (low[0] * w, low[1] * h))
-        hdist = math.dist((left_m[0] * w, left_m[1] * h), (right_m[0] * w, right_m[1] * h))
-        mar = (v / hdist) if hdist != 0 else 0.0
-    except Exception:
-        mar = 0.0
-    features = {
-        "ear_left": float(round(ear_l, 6)),
-        "ear_right": float(round(ear_r, 6)),
-        "mar": float(round(mar, 6)),
-    }
-    return lm_list, features
 
-def _heuristic_facial_to_emotion(features: Dict[str, float]) -> Dict[str, float]:
-    """Map features to raw scores for EMOTION_CLASSES (will be normalized later)."""
-    ear_avg = (features.get("ear_left", 0.0) + features.get("ear_right", 0.0)) / 2.0
-    mar = features.get("mar", 0.0)
-    # heuristics:
-    # - closed eyes (small EAR) -> tired/sad/anger depending on mouth
-    # - large mouth (high MAR) -> surprise / joy
-    scores = {k: 0.01 for k in EMOTION_CLASSES}
-    scores["joy"] += max(0.0, mar * 4.0 - ear_avg * 1.5)
-    scores["surprise"] += max(0.0, mar * 5.0)
-    scores["sadness"] += max(0.0, (0.12 - ear_avg) * 6.0)
-    scores["anger"] += max(0.0, (0.06 - (features.get("ear_left", 0.0) - features.get("ear_right", 0.0))) * 4.0)
-    scores["fear"] += max(0.0, (0.08 - ear_avg) * 2.0 + mar * 1.0)
-    scores["disgust"] += max(0.0, (0.04 - ear_avg) * 1.2)
-    scores["neutral"] += 0.5
-    return scores
+# Landmarking constants (Must match training)
+L_EYE = [362, 385, 387, 263, 373, 380]
+MOUTH_MAR = [61, 39, 37, 269, 270, 267]
+L_PIR = [469, 471, 475, 477]
 
-def _predict_facial_stress(features: Dict[str, float]) -> int:
-    """Return integer stress score 0..100 using optional trained model or heuristics."""
-    _try_load_joblib_models()
-    if _facial_clf is not None and _scaler is not None:
-        try:
-            # ensure consistent feature order
-            arr = np.array([[features.get("ear_left", 0.0), features.get("ear_right", 0.0), features.get("mar", 0.0)]], dtype=float)
-            scaled = _scaler.transform(arr)
-            if hasattr(_facial_clf, "predict_proba"):
-                probs = _facial_clf.predict_proba(scaled)
-                # heuristically choose class that corresponds to stress if binary or use mean
-                if probs.shape[1] == 2:
-                    stress_prob = float(probs[0, 1])
-                else:
-                    stress_prob = float(np.mean(probs[0]))
-                return int(round(max(0.0, min(1.0, stress_prob)) * 100))
-        except Exception as e:
-            logger.warning("Facial classifier failed: %s", e)
-    # fallback heuristics: lower EAR => more stress, higher MAR => less stress (yawn/surprise reduce)
-    ear_avg = (features.get("ear_left", 0.0) + features.get("ear_right", 0.0)) / 2.0
-    mar = features.get("mar", 0.0)
-    ear_score = max(0.0, min(1.0, (0.15 - ear_avg) / 0.15))  # 0..1
-    mar_score = max(0.0, min(1.0, (0.4 - mar) / 0.4))  # treat big open mouth as lower stress
-    combined = 0.65 * ear_score + 0.35 * mar_score
-    return int(round(max(0.0, min(1.0, combined)) * 100))
+def get_distance(p1, p2):
+    return hypot(p1.x - p2.x, p1.y - p2.y)
+
+def calculate_ear(landmarks, indices):
+    p2, p6 = landmarks[indices[1]], landmarks[indices[5]]
+    p3, p5 = landmarks[indices[2]], landmarks[indices[4]]
+    p1, p4 = landmarks[indices[0]], landmarks[indices[3]]
+    return (get_distance(p2, p6) + get_distance(p3, p5)) / (2.0 * get_distance(p1, p4))
+
+def calculate_mar(landmarks, indices):
+    p2, p8 = landmarks[indices[1]], landmarks[indices[5]] 
+    p3, p7 = landmarks[indices[2]], landmarks[indices[4]]
+    p1, p5 = landmarks[indices[0]], landmarks[indices[3]] 
+    return (get_distance(p2, p8) + get_distance(p3, p7)) / (2.0 * get_distance(p1, p5))
+
+def calculate_pir(landmarks, indices):
+    iris_h = get_distance(landmarks[indices[0]], landmarks[indices[1]])
+    pupil_h = get_distance(landmarks[indices[2]], landmarks[indices[3]])
+    return pupil_h / iris_h if iris_h != 0 else 0
+
+def get_features(image_bgr, face_mesh):
+    # static_image_mode=False is CRITICAL for FPS
+    # Convert BGR to RGB
+    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+    results = face_mesh.process(image_rgb)
+    if not results.multi_face_landmarks: return None, None
+    lm = results.multi_face_landmarks[0].landmark
+    
+    # Feature extraction logic must be identical to training
+    ear = calculate_ear(lm, L_EYE)
+    mar = calculate_mar(lm, MOUTH_MAR)
+    face_width = get_distance(lm[234], lm[454]) 
+    eyebrow_dist = get_distance(lm[55], lm[285]) / face_width
+    eye_center = lm[386]
+    eyebrow_center = lm[276]
+    brow_height = get_distance(eye_center, eyebrow_center) / face_width
+    mouth_width = get_distance(lm[61], lm[291]) / face_width
+    pir = calculate_pir(lm, L_PIR)
+
+    # 6 Features used in emotion training
+    features_list = [ear, mar, eyebrow_dist, brow_height, mouth_width, pir]
+    
+    # Also return landmarks for visualization
+    landmarks_list = [[float(l.x), float(l.y)] for l in lm]
+    
+    return features_list, landmarks_list
+
+# -------------------
+# Mapping Logic
+# -------------------
+
+def map_to_dashboard(core_probs):
+    """Calculates distribution across 27 categories."""
+    dashboard_data = {}
+    
+    # 1. Distribute the core probability across sub-emotions
+    for i, primary_emotion in enumerate(EMOTION_CLASSES):
+        core_prob = core_probs[i]
+        related_sub_emotions = EMOTION_MAPPING[primary_emotion]
+        
+        for sub_emotion in related_sub_emotions:
+            # Assign a base share of the core probability + small noise
+            base_value = core_prob / len(related_sub_emotions)
+            share = base_value * random.uniform(0.9, 1.1)
+            dashboard_data[sub_emotion] = max(0.005, share) 
+            
+    # Normalize the final result to 100%
+    total_sum = sum(dashboard_data.values())
+    return {k: v / total_sum for k, v in dashboard_data.items()}
 
 # -------------------
 # Text processing
@@ -366,17 +357,23 @@ def _text_to_raw_dist(text: str) -> Dict[str, float]:
                 logits = outputs.logits[0].cpu().numpy()
                 
                 # j-hartmann model outputs: ['anger', 'disgust', 'fear', 'joy', 'neutral', 'sadness', 'surprise']
-                # Our EMOTION_CLASSES: ["joy", "sadness", "anger", "fear", "surprise", "disgust", "neutral"]
+                # Our EMOTION_CLASSES: ["happy", "sad", "angry", "fear", "surprise", "disgust", "neutral"]
+                # Note: "joy" -> "happy", "sadness" -> "sad"
                 model_labels = ['anger', 'disgust', 'fear', 'joy', 'neutral', 'sadness', 'surprise']
                 
                 # Apply softmax to get probabilities
                 probs = np.exp(logits) / np.exp(logits).sum()
                 
                 # Map model output to our EMOTION_CLASSES format
-                # The model uses the same emotion names, so we can directly map them
                 mapping = {}
                 for i, model_label in enumerate(model_labels):
-                    mapping[model_label] = float(probs[i])
+                    # Map labels
+                    target_label = model_label
+                    if model_label == "joy": target_label = "happy"
+                    if model_label == "sadness": target_label = "sad"
+                    
+                    if target_label in EMOTION_CLASSES:
+                        mapping[target_label] = float(probs[i])
                 
                 logger.info(f"Text: '{text_input[:50]}...' -> Model emotions: {mapping}")
                 return mapping
@@ -385,9 +382,9 @@ def _text_to_raw_dist(text: str) -> Dict[str, float]:
     # Simple keyword heuristic fallback
     scores = {k: 0.0 for k in EMOTION_CLASSES}
     kw_map = {
-        "joy": ["happy", "joy", "glad", "great", "awesome", "excited", "good", "love", "wonderful", "fantastic"],
-        "sadness": ["sad", "depressed", "unhappy", "sorrow", "mourn", "grief", "cry", "lonely", "heartbroken", "down"],
-        "anger": ["angry", "mad", "furious", "rage", "irritat", "hate", "annoy", "frustrat"],
+        "happy": ["happy", "joy", "glad", "great", "awesome", "excited", "good", "love", "wonderful", "fantastic"],
+        "sad": ["sad", "depressed", "unhappy", "sorrow", "mourn", "grief", "cry", "lonely", "heartbroken", "down"],
+        "angry": ["angry", "mad", "furious", "rage", "irritat", "hate", "annoy", "frustrat"],
         "fear": ["afraid", "scared", "fear", "panic", "nervous", "anxious", "worried", "terrified", "dread"],
         "surprise": ["wow", "surprising", "surprise", "shocked", "amazing", "unbelievable"],
         "disgust": ["disgust", "gross", "yuck", "nasty", "revolting", "sick"],
@@ -407,13 +404,13 @@ def _text_to_raw_dist(text: str) -> Dict[str, float]:
             if k in text_lower:
                 scores[label] += 1.0
 
-    # Map stress keywords to fear/sadness/anger to boost stress score
+    # Map stress keywords to fear/sad/angry to boost stress score
     for label, keys in stress_map.items():
         for k in keys:
             if k in text_lower:
                 scores["fear"] += 0.5
-                scores["sadness"] += 0.5
-                scores["anger"] += 0.2
+                scores["sad"] += 0.5
+                scores["angry"] += 0.2
 
     if sum(scores.values()) == 0.0:
         scores["neutral"] = 1.0
@@ -435,17 +432,17 @@ def _check_sensitive_content(text: str) -> bool:
 
 def _predict_textual_stress_from_dist(raw_dist: Dict[str, float]) -> int:
     """Heuristic mapping of emotion distribution to stress score 0..100."""
-    # higher sadness/anger/fear => higher stress, joy/neutral reduce
+    # higher sad/angry/fear => higher stress, happy/neutral reduce
     total = sum(max(0.0, v) for v in raw_dist.values()) or 1.0
     normalized = {k: v / total for k, v in raw_dist.items()}
     
     # Enhanced stress calculation with better weights
     stress = (
-        normalized.get("sadness", 0.0) * 0.6 +
-        normalized.get("anger", 0.0) * 0.55 +
+        normalized.get("sad", 0.0) * 0.6 +
+        normalized.get("angry", 0.0) * 0.55 +
         normalized.get("fear", 0.0) * 0.65 +
         normalized.get("disgust", 0.0) * 0.3
-    ) - normalized.get("joy", 0.0) * 0.35 - normalized.get("neutral", 0.0) * 0.2
+    ) - normalized.get("happy", 0.0) * 0.35 - normalized.get("neutral", 0.0) * 0.2
     
     stress = max(0.0, stress)
     stress = min(1.0, stress)
@@ -459,13 +456,14 @@ def process_facial_frame(frame_bgr: Any, last_probs: Optional[List[float]] = Non
     Called by app.py's /api/process_face.
     Accepts:
       - frame_bgr: numpy array (BGR) image
-      - last_probs, last_stress: optional smoothing inputs (ignored by heuristics but accepted)
+      - last_probs, last_stress: optional smoothing inputs
     Returns JSON-serializable dict:
       status: "success"|"no_face"|"error"
       landmarks: list[[x,y], ...] normalized coordinates (0..1)
       stress_score: int 0..100
       dashboard_data: {emotion: percent} summing to ~100
       emotion: dominant emotion string
+      raw_probs: list[float] (for next frame smoothing)
     """
     try:
         if frame_bgr is None:
@@ -475,22 +473,71 @@ def process_facial_frame(frame_bgr: Any, last_probs: Optional[List[float]] = Non
             # try to decode if base64 was passed at upper layer (app.py handles base64 decode there).
             return {"status": "error", "error": "Frame format not supported"}
 
-        landmarks, features = _extract_landmarks_and_features(frame_bgr)
-        if not features:
+        # Initialize models if needed
+        _try_load_joblib_models()
+        face_mesh = get_face_mesh()
+
+        features, landmarks = get_features(frame_bgr, face_mesh)
+        
+        if not features or not landmarks:
             return {"status": "no_face"}
 
-        stress_score = _predict_facial_stress(features)
-        raw_scores = _heuristic_facial_to_emotion(features)
-        dashboard_data = _normalize_dist(raw_scores)
-        emotion = _dominant_label(dashboard_data)
+        # Default values if models fail
+        stress_score = 0
+        dashboard_data = {k: 0.0 for k in EMOTION_CLASSES}
+        dashboard_data["neutral"] = 100.0
+        detected_emotion = "neutral"
+        current_probs = [1.0/7] * 7
+
+        if _scaler and _facial_clf:
+            try:
+                features_scaled = _scaler.transform([features])
+                raw_probs = _facial_clf.predict_proba(features_scaled)[0]
+                
+                # 1. Temporal Smoothing
+                if last_probs is not None and len(last_probs) == len(raw_probs):
+                    smoothed_probs = (ALPHA * raw_probs) + ((1 - ALPHA) * np.array(last_probs))
+                else:
+                    smoothed_probs = raw_probs
+                
+                current_probs = smoothed_probs.tolist()
+
+                # 2. Weighted Stress Calculation
+                raw_stress_score = np.sum(smoothed_probs * STRESS_WEIGHTS) * 100
+                
+                # 3. Temporal Smoothing on Stress Score
+                if last_stress is not None:
+                    current_stress_score = (ALPHA * raw_stress_score) + ((1 - ALPHA) * last_stress)
+                else:
+                    current_stress_score = raw_stress_score
+                
+                stress_score = int(current_stress_score)
+
+                # 4. Predict Top Emotion
+                pred_idx = np.argmax(smoothed_probs)
+                detected_emotion = EMOTION_CLASSES[pred_idx]
+                
+                # 5. Get Dashboard Data
+                dashboard_data_raw = map_to_dashboard(smoothed_probs)
+                dashboard_data = {k: float(v) * 100 for k, v in dashboard_data_raw.items()} # Scale to 0-100 for frontend
+
+            except Exception as e:
+                logger.error(f"Model prediction failed: {e}")
+                # Fallback to simple heuristics if model fails? 
+                # For now, just return defaults or maybe a specific error
+                pass
+        else:
+             logger.warning("Models not loaded, cannot calculate stress.")
 
         # Ensure native types
         return {
             "status": "success",
-            "landmarks": [[float(x), float(y)] for x, y in landmarks],
+            "landmarks": landmarks,
             "stress_score": int(stress_score),
-            "dashboard_data": {k: float(v) for k, v in dashboard_data.items()},
-            "emotion": str(emotion) if emotion is not None else "neutral"
+            "dashboard_data": dashboard_data,
+            "emotion": str(detected_emotion),
+            "raw_probs": current_probs,
+            "raw_stress": float(stress_score)
         }
     except Exception as e:
         logger.exception("Error in process_facial_frame: %s", e)
