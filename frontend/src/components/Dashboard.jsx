@@ -32,6 +32,9 @@ import {
   getTimeAgo,
 } from "../utils/dashboardUtils";
 
+import ConsultantFinder from "./ConsultantFinder";
+import RecommendationPanel from "./RecommendationPanel";
+
 // ------------------ EMOTION COLORS ------------------
 const EMOTION_COLORS = {
   joy: "#10B981",
@@ -413,7 +416,21 @@ export default function Dashboard() {
               );
             })}
           </div>
-        )}
+        )}      </motion.div>
+
+      {/* AI RECOMMENDATIONS WITH EMOTION CONTEXT */}
+      <motion.div className="mt-8" variants={itemVariants}>
+        <RecommendationPanel
+          stressScore={sessions.length > 0 ? sessions[0].averageScore : null}
+          emotionData={sessions.length > 0 ? (sessions[0].dashboard_data || sessions[0].detected_emotions) : {}}
+          emotionSummary={emotionPie.slice(0, 3).map(e => `${e.name} (${e.value}%)`).join(", ")}
+          autoRefresh={true}
+        />
+      </motion.div>
+
+      {/* CONSULTANT FINDER */}
+      <motion.div className="mt-8" variants={itemVariants}>
+        <ConsultantFinder />
       </motion.div>
     </div>
   );

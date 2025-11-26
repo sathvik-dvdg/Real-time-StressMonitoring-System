@@ -1,0 +1,42 @@
+2025-11-26 01:43:55,706 - app - INFO - Imported process module.
+2025-11-26 01:43:55,854 - process - INFO - MediaPipe FaceMesh initialized.
+2025-11-26 01:43:55,855 - app - INFO - Called try_load_facial_model()
+2025-11-26 01:43:55,856 - app - INFO - Called get_face_mesh()
+2025-11-26 01:43:55,857 - process - INFO - Text model loading skipped - using Gemini API for text analysis
+2025-11-26 01:43:55,859 - app - INFO - Called get_text_model_and_tokenizer()
+2025-11-26 01:43:56,536 - app - INFO - Starting local server at http://0.0.0.0:5001
+2025-11-26 01:43:56,546 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.158.56.142:5001
+2025-11-26 01:43:56,548 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-11-26 01:44:56,630 - app - INFO - Imported process module.
+2025-11-26 01:44:56,658 - process - INFO - MediaPipe FaceMesh initialized.
+2025-11-26 01:44:56,659 - app - INFO - Called try_load_facial_model()
+2025-11-26 01:44:56,660 - app - INFO - Called get_face_mesh()
+2025-11-26 01:44:56,660 - process - INFO - Text model loading skipped - using Gemini API for text analysis
+2025-11-26 01:44:56,660 - app - INFO - Called get_text_model_and_tokenizer()
+2025-11-26 01:44:57,280 - app - INFO - Starting local server at http://0.0.0.0:5001
+2025-11-26 01:44:57,292 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.158.56.142:5001
+2025-11-26 01:44:57,292 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-11-26 01:46:40,481 - app - INFO - Imported process module.
+2025-11-26 01:46:40,494 - process - INFO - MediaPipe FaceMesh initialized.
+2025-11-26 01:46:40,494 - app - INFO - Called try_load_facial_model()
+2025-11-26 01:46:40,494 - app - INFO - Called get_face_mesh()
+2025-11-26 01:46:40,495 - process - INFO - Text model loading skipped - using Gemini API for text analysis
+2025-11-26 01:46:40,495 - app - INFO - Called get_text_model_and_tokenizer()
+2025-11-26 01:48:49,657 - app - INFO - Imported process module.
+2025-11-26 01:48:49,674 - process - INFO - MediaPipe FaceMesh initialized.
+2025-11-26 01:48:49,675 - app - INFO - Called try_load_facial_model()
+2025-11-26 01:48:49,675 - app - INFO - Called get_face_mesh()
+2025-11-26 01:48:49,675 - process - INFO - Text model loading skipped - using Gemini API for text analysis
+2025-11-26 01:48:49,676 - app - INFO - Called get_text_model_and_tokenizer()
+2025-11-26 01:49:26,503 - app - INFO - Imported process module.
+2025-11-26 01:49:26,520 - process - INFO - MediaPipe FaceMesh initialized.
+2025-11-26 01:49:26,521 - app - INFO - Called try_load_facial_model()
+2025-11-26 01:49:26,521 - app - INFO - Called get_face_mesh()
+2025-11-26 01:49:26,522 - process - INFO - Text model loading skipped - using Gemini API for text analysis
+2025-11-26 01:49:26,523 - app - INFO - Called get_text_model_and_tokenizer()

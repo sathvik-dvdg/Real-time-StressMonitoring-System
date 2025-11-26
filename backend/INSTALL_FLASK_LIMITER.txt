@@ -1,0 +1,2 @@
+# Add Flask-Limiter to requirements
+echo "Flask-Limiter>=3.5.0" >> requirements.txt

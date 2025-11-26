@@ -5,10 +5,18 @@ from dotenv import load_dotenv
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 import cv2
 import numpy as np
 import importlib
+
+# -----------------------------
+# Import consultant and recommendation services
+# -----------------------------
+from consultant_service_v2 import consultant_service
+from recommendation_service import get_recommendation_service
 
 # -----------------------------
 # Gemini — NEW google-genai SDK (correct)
@@ -57,6 +65,14 @@ get_text_model_and_tokenizer = _proc_attr("get_text_model_and_tokenizer")
 app = Flask(__name__)
 # FIXED: Restrict CORS to frontend origin (adjust port if needed)
 CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173"]}})
+
+# Initialize rate limiter
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
 
 # -----------------------------
 # Initialize ML models
@@ -239,6 +255,135 @@ def api_chat():
             "status": "error",
             "response": "Gemini Error",
             "detail": str(e)
+        }), 500
+
+
+# ---------------------------------------------------
+# Consultant Search - Dynamic Location-Based
+# ---------------------------------------------------
+@app.route("/api/consultants/nearby", methods=["POST"])
+@limiter.limit("10 per minute")
+def api_nearby_consultants():
+    """
+    Find nearby wellness professionals based on user's real location.
+    Expects: {"lat": float, "lon": float, "limit": int (optional)}
+    """
+    try:
+        payload = request.get_json(silent=True) or {}
+        lat = payload.get("lat")
+        lon = payload.get("lon")
+        limit = payload.get("limit", 5)
+        
+        if not lat or not lon:
+            return jsonify({
+                "status": "error",
+                "error": "Latitude and longitude are required"
+            }), 400
+        
+        # Use the consultant service to find nearby professionals
+        consultants = consultant_service.find_nearby(lat, lon, limit)
+        
+        return jsonify({
+            "status": "success",
+            "consultants": consultants,
+            "user_location": {"lat": lat, "lon": lon}
+        })
+        
+    except Exception as e:
+        LOG.error(f"Error in nearby consultants: {e}")
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
+
+
+# ---------------------------------------------------
+# AI-Powered Recommendations
+# ---------------------------------------------------
+@app.route("/api/recommendations", methods=["POST"])
+@limiter.limit("20 per minute")
+def api_recommendations():
+    """
+    Generate personalized wellness recommendations based on stress and emotion data.
+    Expects: {"stress_score": int, "emotion_data": dict, "session_context": dict (optional)}
+    """
+    try:
+        payload = request.get_json(silent=True) or {}
+        stress_score = payload.get("stress_score")
+        emotion_data = payload.get("emotion_data", {})
+        session_context = payload.get("session_context")
+        
+        if stress_score is None:
+            return jsonify({
+                "status": "error",
+                "error": "stress_score is required"
+            }), 400
+        
+        # Get recommendation service with Gemini client
+        rec_service = get_recommendation_service(gemini_model)
+        
+        # Generate recommendations
+        recommendations = rec_service.generate_recommendations(
+            stress_score=int(stress_score),
+            emotion_data=emotion_data,
+            session_context=session_context
+        )
+        
+        return jsonify({
+            "status": "success",
+            "recommendations": recommendations
+        })
+        
+    except Exception as e:
+        LOG.error(f"Error generating recommendations: {e}")
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
+
+
+# ---------------------------------------------------
+# Recommendation Feedback
+# ---------------------------------------------------
+@app.route("/api/recommendations/feedback", methods=["POST"])
+@limiter.limit("30 per minute")
+def api_recommendation_feedback():
+    """
+    Collect user feedback on recommendations.
+    Expects: {"recommendation_id": str, "action": "accepted" | "dismissed" | "snoozed", "user_id": str (optional)}
+    """
+    try:
+        payload = request.get_json(silent=True) or {}
+        recommendation_id = payload.get("recommendation_id")
+        action = payload.get("action")
+        user_id = payload.get("user_id")
+        
+        if not recommendation_id or not action:
+            return jsonify({
+                "status": "error",
+                "error": "recommendation_id and action are required"
+            }), 400
+        
+        if action not in ["accepted", "dismissed", "snoozed"]:
+            return jsonify({
+                "status": "error",
+                "error": "action must be 'accepted', 'dismissed', or 'snoozed'"
+            }), 400
+        
+        # TODO: Store feedback in database for ML training
+        # For now, just log it
+        LOG.info(f"Recommendation feedback: id={recommendation_id}, action={action}, user={user_id}")
+        
+        return jsonify({
+            "status": "success",
+            "message": "Feedback recorded"
+        })
+        
+    except Exception as e:
+        LOG.error(f"Error recording feedback: {e}")
+        return jsonify({
+            "status": "error",
+            "error": str(e)
         }), 500
 
 
