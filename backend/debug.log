@@ -383,3 +383,127 @@
 [GEMINI] After removing markdown
 [GEMINI] Parsed JSON: {'stress_score': 70, 'emotion': 'fear', 'helpline_trigger': False, 'emotion_distribution': {'joy': 0, 'sadness': 20, 'anger': 5, 'fear': 65, 'surprise': 0, 'disgust': 0, 'neutral': 10}}
 [GEMINI] SUCCESS: stress=70, emotion=fear, helpline=False
+
+[GEMINI] analyze_text_with_gemini called with text='I feel stressed right now.'
+[GEMINI] Calling Gemini API...
+[GEMINI] Raw response: ```json
+{
+  "stress_score": 65,
+  "emotion": "fear",
+  "helpline_trigger": false,
+  "emotion_distribution": {
+    "joy": 0,
+    "sadness": 20,
+    "anger": 5,
+    "fear": 50,
+    "surprise": 0,
+    "disgust": 0,
+    "neutral": 25
+  }
+}
+```
+[GEMINI] After removing markdown
+[GEMINI] Parsed JSON: {'stress_score': 65, 'emotion': 'fear', 'helpline_trigger': False, 'emotion_distribution': {'joy': 0, 'sadness': 20, 'anger': 5, 'fear': 50, 'surprise': 0, 'disgust': 0, 'neutral': 25}}
+[GEMINI] SUCCESS: stress=65, emotion=fear, helpline=False
+
+[GEMINI] analyze_text_with_gemini called with text='I feel stressed right now.'
+[GEMINI] Calling Gemini API...
+[GEMINI] Raw response: ```json
+{"stress_score": 65, "emotion": "fear", "helpline_trigger": false, "emotion_distribution": {"joy": 0, "sadness": 20, "anger": 5, "fear": 60, "surprise": 0, "disgust": 0, "neutral": 15}}
+```
+[GEMINI] After removing markdown
+[GEMINI] Parsed JSON: {'stress_score': 65, 'emotion': 'fear', 'helpline_trigger': False, 'emotion_distribution': {'joy': 0, 'sadness': 20, 'anger': 5, 'fear': 60, 'surprise': 0, 'disgust': 0, 'neutral': 15}}
+[GEMINI] SUCCESS: stress=65, emotion=fear, helpline=False
+
+[GEMINI] analyze_text_with_gemini called with text='I feel stressed right now.'
+[GEMINI] Calling Gemini API...
+[GEMINI] Raw response: ```json
+{
+  "stress_score": 70,
+  "emotion": "fear",
+  "helpline_trigger": false,
+  "emotion_distribution": {
+    "joy": 0,
+    "sadness": 20,
+    "anger": 5,
+    "fear": 50,
+    "surprise": 0,
+    "disgust": 0,
+    "neutral": 25
+  }
+}
+```
+[GEMINI] After removing markdown
+[GEMINI] Parsed JSON: {'stress_score': 70, 'emotion': 'fear', 'helpline_trigger': False, 'emotion_distribution': {'joy': 0, 'sadness': 20, 'anger': 5, 'fear': 50, 'surprise': 0, 'disgust': 0, 'neutral': 25}}
+[GEMINI] SUCCESS: stress=70, emotion=fear, helpline=False
+
+[GEMINI] analyze_text_with_gemini called with text='Give me a relaxation tip.'
+[GEMINI] Calling Gemini API...
+[GEMINI] Raw response: ```json
+{"stress_score": 30, "emotion": "neutral", "helpline_trigger": false, "emotion_distribution": {"joy": 5, "sadness": 10, "anger": 5, "fear": 5, "surprise": 5, "disgust": 0, "neutral": 70}}
+```
+[GEMINI] After removing markdown
+[GEMINI] Parsed JSON: {'stress_score': 30, 'emotion': 'neutral', 'helpline_trigger': False, 'emotion_distribution': {'joy': 5, 'sadness': 10, 'anger': 5, 'fear': 5, 'surprise': 5, 'disgust': 0, 'neutral': 70}}
+[GEMINI] SUCCESS: stress=30, emotion=neutral, helpline=False
+
+[GEMINI] analyze_text_with_gemini called with text='Give me a relaxation tip.'
+[GEMINI] Calling Gemini API...
+[GEMINI] Raw response: ```json
+{"stress_score": 30, "emotion": "neutral", "helpline_trigger": false, "emotion_distribution": {"joy": 0, "sadness": 5, "anger": 5, "fear": 5, "surprise": 5, "disgust": 0, "neutral": 80}}
+```
+[GEMINI] After removing markdown
+[GEMINI] Parsed JSON: {'stress_score': 30, 'emotion': 'neutral', 'helpline_trigger': False, 'emotion_distribution': {'joy': 0, 'sadness': 5, 'anger': 5, 'fear': 5, 'surprise': 5, 'disgust': 0, 'neutral': 80}}
+[GEMINI] SUCCESS: stress=30, emotion=neutral, helpline=False
+
+[GEMINI] analyze_text_with_gemini called with text='I feel stressed right now.'
+[GEMINI] Calling Gemini API...
+[GEMINI] Raw response: ```json
+{
+  "stress_score": 70,
+  "emotion": "fear",
+  "helpline_trigger": false,
+  "emotion_distribution": {
+    "joy": 0,
+    "sadness": 20,
+    "anger": 5,
+    "fear": 65,
+    "surprise": 0,
+    "disgust": 0,
+    "neutral": 10
+  }
+}
+```
+[GEMINI] After removing markdown
+[GEMINI] Parsed JSON: {'stress_score': 70, 'emotion': 'fear', 'helpline_trigger': False, 'emotion_distribution': {'joy': 0, 'sadness': 20, 'anger': 5, 'fear': 65, 'surprise': 0, 'disgust': 0, 'neutral': 10}}
+[GEMINI] SUCCESS: stress=70, emotion=fear, helpline=False
+
+[GEMINI] analyze_text_with_gemini called with text='I'm not feeling productive.'
+[GEMINI] Calling Gemini API...
+[GEMINI] Raw response: ```json
+{"stress_score": 30, "emotion": "sadness", "helpline_trigger": false, "emotion_distribution": {"joy": 5, "sadness": 50, "anger": 5, "fear": 5, "surprise": 0, "disgust": 0, "neutral": 35}}
+```
+[GEMINI] After removing markdown
+[GEMINI] Parsed JSON: {'stress_score': 30, 'emotion': 'sadness', 'helpline_trigger': False, 'emotion_distribution': {'joy': 5, 'sadness': 50, 'anger': 5, 'fear': 5, 'surprise': 0, 'disgust': 0, 'neutral': 35}}
+[GEMINI] SUCCESS: stress=30, emotion=sadness, helpline=False
+
+[GEMINI] analyze_text_with_gemini called with text='i am fine'
+[GEMINI] Calling Gemini API...
+[GEMINI] Raw response: ```json
+{
+  "stress_score": 20,
+  "emotion": "neutral",
+  "helpline_trigger": false,
+  "emotion_distribution": {
+    "joy": 5,
+    "sadness": 15,
+    "anger": 5,
+    "fear": 5,
+    "surprise": 5,
+    "disgust": 5,
+    "neutral": 60
+  }
+}
+```
+[GEMINI] After removing markdown
+[GEMINI] Parsed JSON: {'stress_score': 20, 'emotion': 'neutral', 'helpline_trigger': False, 'emotion_distribution': {'joy': 5, 'sadness': 15, 'anger': 5, 'fear': 5, 'surprise': 5, 'disgust': 5, 'neutral': 60}}
+[GEMINI] SUCCESS: stress=20, emotion=neutral, helpline=False

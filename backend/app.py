@@ -70,7 +70,7 @@ CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "http://12
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
+    default_limits=["1000 per day", "200 per hour"],
     storage_uri="memory://"
 )
 
@@ -151,6 +151,7 @@ def _safe_b64_to_bgr_image(b64string):
 # Facial Processing Endpoint
 # ---------------------------------------------------
 @app.route("/api/process_face", methods=["POST"])
+@limiter.exempt
 def api_process_face():
     try:
         payload = request.get_json(silent=True)
@@ -189,6 +190,7 @@ def api_process_face():
 # Text Stress Analysis
 # ---------------------------------------------------
 @app.route("/api/process_text", methods=["POST"])
+@limiter.limit("60 per minute")
 def api_process_text():
     print("\n===== /api/process_text endpoint hit =====", flush=True)
     try:
@@ -225,6 +227,7 @@ def api_process_text():
 # Gemini Chat — NEW SDK VERSION
 # ---------------------------------------------------
 @app.route("/api/chat", methods=["POST"])
+@limiter.limit("60 per minute")
 def api_chat():
     if gemini_model is None:
         return jsonify({"status": "error", "response": "Gemini not configured"}), 500

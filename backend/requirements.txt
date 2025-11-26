@@ -22,3 +22,6 @@ scipy
 
 # Chatbot API (Gemini)
 google-genai
+
+# Rate Limiting
+Flask-Limiter

@@ -15,6 +15,7 @@ import ScenariosPage from './pages/ScenariosPage.jsx';
 import ObjectivePage from './pages/ObjectivePage.jsx';
 import AboutPage from './pages/AboutPage.jsx';
 import Dashboard from './components/Dashboard.jsx';
+import WellnessPage from './pages/WellnessPage.jsx';
 
 const router = createBrowserRouter([
   {
@@ -50,11 +51,14 @@ const router = createBrowserRouter([
         path: '/about',
         element: <AboutPage />,
       },
+      {
+        path: '/wellness',
+        element: <WellnessPage />,
+      },
     ],
   },
 ]);
 
-// ... (rest of your file is the same) ...
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthProvider>

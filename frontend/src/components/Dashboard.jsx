@@ -25,15 +25,12 @@ import {
 } from "recharts";
 
 import { motion } from "framer-motion";
-import { Play, Activity, AlertCircle } from "lucide-react";
+import { Play, Activity, AlertCircle, Sparkles } from "lucide-react";
 
 import {
   getStressLevelInfo,
   getTimeAgo,
 } from "../utils/dashboardUtils";
-
-import ConsultantFinder from "./ConsultantFinder";
-import RecommendationPanel from "./RecommendationPanel";
 
 // ------------------ EMOTION COLORS ------------------
 const EMOTION_COLORS = {
@@ -384,6 +381,17 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
+      {/* AI SUMMARY GENERATOR BUTTON */}
+      <motion.div className="mt-8 flex justify-center" variants={itemVariants}>
+        <button
+          onClick={() => (window.location.href = "/wellness")}
+          className="flex items-center px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all"
+        >
+          <Sparkles className="w-6 h-6 mr-3" />
+          AI Summary Generator
+        </button>
+      </motion.div>
+
       {/* ALL SESSIONS LIST */}
       <motion.div className="bg-white rounded-xl shadow p-6 mt-8" variants={itemVariants}>
         <h3 className="text-lg font-semibold text-gray-800 mb-4">All Sessions History</h3>
@@ -417,21 +425,6 @@ export default function Dashboard() {
             })}
           </div>
         )}      </motion.div>
-
-      {/* AI RECOMMENDATIONS WITH EMOTION CONTEXT */}
-      <motion.div className="mt-8" variants={itemVariants}>
-        <RecommendationPanel
-          stressScore={sessions.length > 0 ? sessions[0].averageScore : null}
-          emotionData={sessions.length > 0 ? (sessions[0].dashboard_data || sessions[0].detected_emotions) : {}}
-          emotionSummary={emotionPie.slice(0, 3).map(e => `${e.name} (${e.value}%)`).join(", ")}
-          autoRefresh={true}
-        />
-      </motion.div>
-
-      {/* CONSULTANT FINDER */}
-      <motion.div className="mt-8" variants={itemVariants}>
-        <ConsultantFinder />
-      </motion.div>
     </div>
   );
 }
