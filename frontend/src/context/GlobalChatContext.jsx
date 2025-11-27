@@ -6,7 +6,7 @@ import axios from 'axios';
 // 1. Create the Context
 const GlobalChatContext = createContext();
 
-// 2. EXPORT the Hook (This is what was missing/causing the error)
+// 2. EXPORT the Hook
 export function useGlobalChat() {
   return useContext(GlobalChatContext);
 }
@@ -89,9 +89,16 @@ export function GlobalChatProvider({ children }) {
 
     } catch (error) {
       console.error("Error sending message:", error);
+      let errorText = "I'm having trouble connecting. Please try again.";
+
+      if (error.response && error.response.data) {
+        if (error.response.data.response) errorText = error.response.data.response;
+        else if (error.response.data.error) errorText = error.response.data.error;
+      }
+
       const errorMessage = {
         sender: 'ai',
-        text: "I'm having trouble connecting. Please try again.",
+        text: errorText,
         isError: true,
         timestamp: new Date().toISOString()
       };

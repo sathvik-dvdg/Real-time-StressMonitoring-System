@@ -25,6 +25,8 @@ class ConsultantService:
             logger.info(f"Returning cached results for lat={lat}, lon={lon}")
             return cached_results
 
+        logger.info(f"🔍 Searching consultants for lat={lat}, lon={lon}")
+
         try:
             # Calculate a bounding box (~20km radius for better coverage)
             # 1 deg latitude ~= 111km

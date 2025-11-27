@@ -2,7 +2,7 @@
 import React from 'react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/authContext/AuthContext';
 import './index.css';
 import App from './App.jsx';
@@ -31,8 +31,12 @@ const router = createBrowserRouter([
         element: <SessionPage />,
       },
       {
-        path: '/summary',
+        path: '/dashboard', // Renamed from /summary
         element: <Dashboard />,
+      },
+      {
+        path: '/summary', // Redirect old route
+        element: <Navigate to="/dashboard" replace />,
       },
       {
         path: '/login',

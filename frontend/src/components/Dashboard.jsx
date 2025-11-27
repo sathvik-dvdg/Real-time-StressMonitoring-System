@@ -22,6 +22,7 @@ import {
   Pie,
   Cell,
   Legend,
+  Sector,
 } from "recharts";
 
 import { motion } from "framer-motion";
@@ -76,6 +77,52 @@ const toJsDate = (ts) => {
   return new Date(ts);
 };
 
+const renderActiveShape = (props) => {
+  const RADIAN = Math.PI / 180;
+  const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+  const sin = Math.sin(-RADIAN * midAngle);
+  const cos = Math.cos(-RADIAN * midAngle);
+  const sx = cx + (outerRadius + 10) * cos;
+  const sy = cy + (outerRadius + 10) * sin;
+  const mx = cx + (outerRadius + 30) * cos;
+  const my = cy + (outerRadius + 30) * sin;
+  const ex = mx + (cos >= 0 ? 1 : -1) * 22;
+  const ey = my;
+  const textAnchor = cos >= 0 ? 'start' : 'end';
+
+  return (
+    <g>
+      <text x={cx} y={cy} dy={8} textAnchor="middle" fill={fill} className="text-lg font-bold">
+        {payload.name}
+      </text>
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 10}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+      />
+      <Sector
+        cx={cx}
+        cy={cy}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        innerRadius={outerRadius + 6}
+        outerRadius={outerRadius + 10}
+        fill={fill}
+      />
+      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
+      <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
+      <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} textAnchor={textAnchor} fill="#333">{`${value}%`}</text>
+      <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} dy={18} textAnchor={textAnchor} fill="#999">
+        {`(Rate ${(percent * 100).toFixed(2)}%)`}
+      </text>
+    </g>
+  );
+};
+
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.07 } },
@@ -98,12 +145,17 @@ export default function Dashboard() {
 
   const [fusedData, setFusedData] = useState([]);
   const [emotionPie, setEmotionPie] = useState([]);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const latestSessionIdRef = useRef(null);
 
   // Fix hydration
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  const onPieEnter = (_, index) => {
+    setActiveIndex(index);
+  };
 
   // -----------------------------------------------------
   // LOAD SUMMARY (totalSessions, totalReadings)
@@ -132,7 +184,6 @@ export default function Dashboard() {
     if (!userLoggedIn || !currentUser) return;
 
     const sessionsRef = collection(db, `users/${currentUser.uid}/sessions`);
-    // FIXED: Removed limit(20) to show all sessions
     const q = query(sessionsRef, orderBy("timestamp", "desc"));
 
     const unsub = onSnapshot(q, (snapshot) => {
@@ -154,7 +205,6 @@ export default function Dashboard() {
     }
 
     const latest = sessions[0];
-    // Use dashboard_data if available
     const dataMap = latest.dashboard_data || latest.detected_emotions;
 
     if (!dataMap) {
@@ -162,19 +212,15 @@ export default function Dashboard() {
       return;
     }
 
-    // Convert to array { name, value }
     const rawData = Object.entries(dataMap).map(([name, value]) => ({
       name,
       value: Number(value)
     }));
 
-    // Sort by value desc
     rawData.sort((a, b) => b.value - a.value);
 
-    // Take top 7
     const top = rawData.slice(0, 7);
 
-    // Normalize to 100% for display
     const total = top.reduce((sum, item) => sum + item.value, 0);
     const finalData = top.map(item => ({
       ...item,
@@ -198,17 +244,15 @@ export default function Dashboard() {
     const unsub = onSnapshot(q, (snapshot) => {
       const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      // ---------- Fix sorting ----------
       all.sort((a, b) => {
         const t1 = toJsDate(a.timestamp);
         const t2 = toJsDate(b.timestamp);
         return t1 - t2;
       });
 
-      // ---------- Smooth Trend ----------
       const facial = all.filter((s) => s.type === "facial");
       const smoothed = [];
-      const binMs = 25 * 1000; // 25-second smoothing
+      const binMs = 25 * 1000;
 
       if (facial.length > 0) {
         let bucket = [];
@@ -238,7 +282,6 @@ export default function Dashboard() {
           }
         }
 
-        // final flush
         if (bucket.length > 0) {
           const avg = Math.round(
             bucket.reduce((a, b) => a + b, 0) / bucket.length
@@ -354,15 +397,17 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
+                      activeIndex={activeIndex}
+                      activeShape={renderActiveShape}
                       data={emotionPie}
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
                       cy="50%"
+                      innerRadius={60}
                       outerRadius={100}
-                      labelLine={false}
                       paddingAngle={4}
-                      label={({ name, value }) => `${name}: ${value}%`}
+                      onMouseEnter={onPieEnter}
                     >
                       {emotionPie.map((e, i) => (
                         <Cell

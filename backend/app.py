@@ -254,10 +254,18 @@ def api_chat():
 
     except Exception as e:
         LOG.error("Gemini Error: %s", e)
+        error_msg = str(e)
+        if "connection" in error_msg.lower() or "network" in error_msg.lower() or "failed to connect" in error_msg.lower():
+            return jsonify({
+                "status": "error",
+                "response": "I'm having trouble connecting to the internet. Please check your connection.",
+                "detail": error_msg
+            }), 503
+        
         return jsonify({
             "status": "error",
-            "response": "Gemini Error",
-            "detail": str(e)
+            "response": "I encountered an error processing your request.",
+            "detail": error_msg
         }), 500
 
 
@@ -339,6 +347,14 @@ def api_recommendations():
         
     except Exception as e:
         LOG.error(f"Error generating recommendations: {e}")
+        error_msg = str(e)
+        if "connection" in error_msg.lower() or "network" in error_msg.lower() or "failed to connect" in error_msg.lower():
+             return jsonify({
+                "status": "error",
+                "error": "Internet connection required for AI recommendations. Please check your network.",
+                "detail": error_msg
+            }), 503
+
         return jsonify({
             "status": "error",
             "error": str(e)
