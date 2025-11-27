@@ -1,9 +1,7 @@
 /* 1. Import Tailwind's base styles */
 @import "tailwindcss";
 
-/* === Animated Particle Background === */
-
-/* 2. This is the main container for your pages */
+/* === Animated Particle Background (Existing for Landing Page) === */
 .animated-bg {
   position: relative;
   width: 100%;
@@ -12,56 +10,145 @@
   background-color: #0f172a; /* slate-900 */
 }
 
-/* 3. This ::before element creates the STATIC grid */
 .animated-bg::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 0;
-  
-  /* The static grid pattern (horizontal and vertical lines) */
   background-image: 
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 24px),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 24px);
   background-size: 24px 24px;
 }
 
-/* 4. This ::after element creates the ANIMATED "data particles" */
 .animated-bg::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 1;
-
-  /* Multiple radial gradients create "particles" of different sizes */
   background-image:
     radial-gradient(circle, rgba(59, 130, 246, 0.4) 1px, transparent 2px),
     radial-gradient(circle, rgba(59, 130, 246, 0.3) 1px, transparent 2px),
     radial-gradient(circle, rgba(255, 255, 255, 0.2) 1px, transparent 2px);
-  
-  /* Spread the particles out on a large "canvas" */
   background-size: 400px 400px, 200px 200px, 100px 100px;
   background-position: 0 0, 50px 50px, 25px 25px;
-
-  /* The animation that moves the particle "canvas" upwards */
   animation: moveParticles 25s linear infinite;
 }
 
-/* 5. The keyframe animation that moves the background position */
 @keyframes moveParticles {
-  0% {
-    background-position: 0 0, 50px 50px, 25px 25px;
-  }
-  100% {
-    /* Move the background vertically by its full size for a seamless loop */
-    background-position: 0 -400px, 50px -350px, 25px -375px;
-  }
+  0% { background-position: 0 0, 50px 50px, 25px 25px; }
+  100% { background-position: 0 -400px, 50px -350px, 25px -375px; }
 }
 
-/* 6. This class ensures your content (text, buttons)
-      sits on TOP of the background animations.
-*/
 .content-layer {
   position: relative;
-  z-index: 10; /* Sits on top of z-index 0 and 1 */
+  z-index: 10;
+}
+
+/* === NEW: Login/Register Page Background === */
+.login-bg {
+  background: linear-gradient(135deg, #e0f2fe 0%, #f3e8ff 50%, #dcfce7 100%);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Subtle waves for Login */
+.login-bg::before {
+  content: "";
+  position: absolute;
+  bottom: -50px;
+  left: 0;
+  width: 100%;
+  height: 100px;
+  background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 1440 320" xmlns="http://www.w3.org/2000/svg"><path fill="%23ffffff" fill-opacity="0.4" d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>');
+  background-size: cover;
+  animation: waveMove 10s linear infinite;
+  opacity: 0.5;
+}
+
+@keyframes waveMove {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* === NEW: Session Page Background === */
+.session-bg {
+  background: radial-gradient(circle at center, #e0f7fa, #e8eaf6, #c5cae9);
+  min-height: 100vh;
+}
+
+/* Glowing Ring Animation for Timer */
+.glow-ring {
+  filter: drop-shadow(0 0 8px rgba(79, 70, 229, 0.6));
+  transition: filter 0.3s ease;
+}
+
+/* Webcam Border Pulse */
+@keyframes borderPulse {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+.webcam-pulse {
+  animation: borderPulse 2s infinite;
+}
+
+/* === NEW: Dashboard Background === */
+.dashboard-bg {
+  background: linear-gradient(to bottom right, #f3e8ff, #ffffff, #f0f9ff);
+  background-size: 200% 200%;
+  animation: gradientBG 20s ease infinite;
+}
+
+/* === NEW: Wellness Page Background === */
+.wellness-bg {
+  background-color: #f8fafc;
+  position: relative;
+  overflow: hidden;
+}
+.wellness-bg::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  width: 120%;
+  height: 120%;
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(167, 139, 250, 0.15) 0%, transparent 20%),
+    radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.15) 0%, transparent 20%);
+  filter: blur(40px);
+  z-index: 0;
+  animation: floatBackground 15s ease-in-out infinite alternate;
+}
+
+@keyframes floatBackground {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(-20px, 20px); }
+}
+
+/* === Utilities === */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 20px;
 }

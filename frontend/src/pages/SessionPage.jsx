@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Clock, Video, MessageSquare, Play, Square, Activity, Send, Sparkles, X
+} from "lucide-react";
 
 // Real imports
 import { useAuth } from '../context/authContext/AuthContext';
@@ -359,7 +363,7 @@ export default function SessionPage() {
       if (isBlank) return;
 
       // Use data URL (base64) instead of sending a file blob.
-      // Flask expects either JSON `image`/`frame` or form text fields, not multipart file uploads.
+      // Flask expects either JSON image/frame or form text fields.
       try {
         const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
         if (dataUrl && dataUrl.length > 100) {
@@ -405,8 +409,8 @@ export default function SessionPage() {
 
     pendingRequests.current++;
 
-    // Prepare payload. Prefer sending JSON with `image` field containing a base64 data URL
-    // Backend (`app.py`) checks JSON or form fields named `image` or `frame`, or raw body.
+    // Prepare payload. Prefer sending JSON with image field containing a base64 data URL
+    // Backend (app.py) checks JSON or form fields named image or frame, or raw body.
     let payload = null;
     let headers = {};
 
@@ -431,9 +435,9 @@ export default function SessionPage() {
         };
         headers['Content-Type'] = 'application/json';
       } catch (e) {
-        // As a last resort, send multipart/form-data with a file field named `frame`.
+        // As a last resort, send multipart/form-data with a file field named frame.
         const form = new FormData();
-        form.append("frame", frameInput, `${Date.now()}.jpg`);
+        form.append("frame", frameInput, Date.now() + ".jpg");
         form.append("userId", userId);
         form.append("sessionId", sessionIdRef.current);
         form.append("timestamp", new Date().toISOString());
@@ -557,7 +561,7 @@ export default function SessionPage() {
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return String(mins).padStart(2, '0') + ":" + String(secs).padStart(2, '0');
   };
 
   const timerPercentage = (sessionTime / SESSION_DURATION_SECONDS) * 100;
@@ -566,178 +570,252 @@ export default function SessionPage() {
   // UI
   // ================================
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-      <div className="max-w-7xl mx-auto px-6 py-8">
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-purple-100 p-6 md:p-8 relative overflow-x-hidden">
+
+      {/* Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-purple-200/30 rounded-full blur-3xl animate-blob"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-200/30 rounded-full blur-3xl animate-blob animation-delay-2000"></div>
+      </div>
+
+      <div className="max-w-[1400px] mx-auto relative z-10">
 
         {/* HEADER */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Stress Detection Session</h1>
-          <p className="text-lg text-gray-600">Real-time monitoring (20 FPS → 1 Hz scoring)</p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-8"
+        >
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2 tracking-tight">Stress Detection Session</h1>
+          <p className="text-base md:text-lg text-gray-500 font-medium">Real-time AI monitoring & analysis</p>
+        </motion.div>
 
-        {/* TIMER */}
-        <div className="text-center mb-8">
-          <div className="w-48 h-48 mx-auto mb-4">
-            <CircularProgressbar
-              value={timerPercentage}
-              text={formatTime(sessionTime)}
-              styles={buildStyles({
-                textColor: '#4F46E5',
-                pathColor: getBarColor(currentStressScore),
-                trailColor: '#E5E7EB',
-                textSize: '20px'
-              })}
-            />
-          </div>
-          <div className="text-xl text-gray-600">
-            {sessionActive ? "Session in Progress" : "Session Ready"}
-          </div>
-        </div>
+        {/* MAIN GRID LAYOUT */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px] gap-6 items-start">
 
-        {/* START / STOP */}
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-8 text-center">
-          {!sessionActive ? (
-            <button
-              onClick={startSession}
-              className="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-lg text-xl transition">
-              Start 2-Minute Session
-            </button>
-          ) : (
-            <div>
-              <div className="text-4xl font-bold text-green-600 mb-4 animate-pulse">Session Active</div>
-              <button
-                onClick={stopSession}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-lg text-xl transition">
-                Stop Session
-              </button>
-            </div>
-          )}
-        </div>
+          {/* LEFT COLUMN (Flexible) */}
+          <div className="flex flex-col gap-6 w-full min-w-0">
 
-        {/* MAIN GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
+            {/* TIMER SECTION (Compact Card) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-indigo-500 to-purple-500"></div>
 
-            {/* WEBCAM */}
-            <div className="bg-white rounded-xl shadow-lg p-8 mb-8 relative">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Webcam Feed</h3>
+              <div className="flex items-center gap-4 z-10">
+                <div className="w-16 h-16 relative">
+                  <CircularProgressbar
+                    value={timerPercentage}
+                    text={formatTime(sessionTime)}
+                    styles={buildStyles({
+                      textColor: '#4F46E5',
+                      pathColor: getBarColor(currentStressScore),
+                      trailColor: '#F3F4F6',
+                      textSize: '28px',
+                      pathTransitionDuration: 0.5,
+                    })}
+                  />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800">Session Timer</h2>
+                  <p className="text-sm text-gray-500">{sessionActive ? "Monitoring active" : "Ready to start"}</p>
+                </div>
+              </div>
 
-              <div className="flex justify-center relative">
+              <div className="z-10">
+                {!sessionActive ? (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={startSession}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md transition-all"
+                  >
+                    <Play className="w-5 h-5 fill-current" />
+                    Start Session
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={stopSession}
+                    className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md transition-all"
+                  >
+                    <Square className="w-5 h-5 fill-current" />
+                    Stop Session
+                  </motion.button>
+                )}
+              </div>
+            </motion.div>
+
+            {/* WEBCAM SECTION (Fixed Height) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 p-6 h-[480px] flex flex-col"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Video className="w-5 h-5 text-indigo-600" />
+                  <h2 className="text-lg font-bold text-gray-800">Live Camera Feed</h2>
+                </div>
+                {sessionActive && (
+                  <span className="flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-600 rounded-full text-xs font-medium border border-red-100">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    LIVE
+                  </span>
+                )}
+              </div>
+
+              <div className="relative flex-1 w-full rounded-xl overflow-hidden bg-gray-900 shadow-inner ring-1 ring-black/5">
                 <video
                   ref={videoRef}
                   autoPlay
                   muted
                   playsInline
-                  className="w-full max-w-md h-64 bg-gray-900 rounded-lg object-cover"
+                  className="w-full h-full object-cover"
                 />
                 <canvas
                   ref={canvasRef}
-                  className="absolute top-0 left-0 w-full h-full pointer-events-none max-w-md left-1/2 -translate-x-1/2"
+                  className="absolute top-0 left-0 w-full h-full pointer-events-none"
                 />
 
-                {cameraError && !sessionActive && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-lg z-10">
-                    <div className="text-center p-4">
-                      <p className="text-red-400 font-bold mb-2">{cameraError}</p>
-                      <button
-                        onClick={startSession}
-                        className="px-4 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100"
-                      >
-                        Retry Camera
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {faceMissing && sessionActive && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-black/60 text-white rounded-xl px-6 py-4">
-                      <div className="font-bold text-lg">Please look at the camera</div>
-                    </div>
-                  </div>
-                )}
-
-                {backendDown && (
-                  <div className="absolute inset-0 flex items-start justify-center pointer-events-none">
-                    <div className="mt-6 bg-yellow-50 text-yellow-700 rounded-full px-4 py-2 text-sm font-medium shadow-sm">
-                      Backend temporarily unavailable — pausing sends
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* LIVE GRAPH */}
-            {stressScores.length > 0 && (
-              <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Live Facial Stress Graph</h2>
-                  {dominantEmotion && (
-                    <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full font-bold">
-                      {dominantEmotion}
-                    </span>
+                {/* Overlays */}
+                <AnimatePresence>
+                  {!sessionActive && !cameraError && (
+                    <motion.div
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/40 backdrop-blur-sm z-10"
+                    >
+                      <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-4 backdrop-blur-md border border-white/20">
+                        <Video className="w-8 h-8 text-white/80" />
+                      </div>
+                      <p className="text-white/80 font-medium">Camera is waiting...</p>
+                    </motion.div>
                   )}
-                </div>
 
-                <div className="h-64 bg-gray-50 rounded-lg p-4 mb-4 flex items-end space-x-1 overflow-x-auto">
-                  {stressScores.slice(-40).map((score, index) => (
-                    <div key={index} className="flex flex-col items-center w-3">
-                      <div
-                        className="w-full rounded-t transition-all"
-                        style={{
-                          height: `${Math.min(100, score.score) * 1.8}px`,
-                          background: getBarColor(score.score)
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
+                  {cameraError && !sessionActive && (
+                    <motion.div
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="absolute inset-0 flex items-center justify-center bg-black/80 z-20"
+                    >
+                      <div className="text-center p-6">
+                        <p className="text-red-400 font-bold mb-4">{cameraError}</p>
+                        <button onClick={startSession} className="px-6 py-2 bg-white text-gray-900 rounded-lg font-bold hover:bg-gray-100 transition">Retry</button>
+                      </div>
+                    </motion.div>
+                  )}
 
-                <div className="text-center">
-                  <p className="text-lg text-gray-700">
-                    Current Stress Level:{" "}
-                    <span className="font-bold text-2xl ml-2" style={{ color: getBarColor(currentStressScore) }}>
-                      {currentStressScore !== null ? `${Math.round(currentStressScore)}%` : "—"}
-                    </span>
-                  </p>
-                </div>
+                  {faceMissing && sessionActive && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                      className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-md text-white px-6 py-3 rounded-full flex items-center gap-2 shadow-lg z-10"
+                    >
+                      <div className="w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
+                      <span className="font-medium">Face not detected</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            )}
+            </motion.div>
+
+            {/* LIVE GRAPH (Fixed Height) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 p-6 h-[380px] flex flex-col"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-indigo-600" />
+                  <h2 className="text-lg font-bold text-gray-800">Stress Analysis</h2>
+                </div>
+                {dominantEmotion && (
+                  <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg font-semibold text-xs border border-indigo-100 uppercase tracking-wide">
+                    {dominantEmotion}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex-1 bg-gray-50/50 rounded-xl p-4 flex items-end gap-1 overflow-hidden relative border border-gray-100">
+                {stressScores.length === 0 ? (
+                  <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+                    Waiting for session data...
+                  </div>
+                ) : (
+                  stressScores.slice(-60).map((score, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ height: 0 }}
+                      animate={{ height: Math.min(100, score.score) + "%" }}
+                      className="flex-1 rounded-t-sm min-w-[4px] max-w-[12px]"
+                      style={{ background: getBarColor(score.score) }}
+                    />
+                  ))
+                )}
+              </div>
+
+              {/* Live Average Score */}
+              <div className="mt-4 flex justify-between items-center px-2">
+                <span className="text-sm font-medium text-gray-500">Live Average Stress (Last 60s)</span>
+                <span className="text-lg font-bold text-indigo-600">
+                  {stressScores.length > 0
+                    ? Math.round(stressScores.slice(-60).reduce((s, i) => s + i.score, 0) / stressScores.slice(-60).length) + "%"
+                    : "—"}
+                </span>
+              </div>
+            </motion.div>
 
           </div>
 
-          {/* CHAT */}
-          <div className="lg:col-span-1 h-[600px]">
-            <Chat sessionId={sessionIdRef.current} />
+          {/* RIGHT COLUMN (Sticky Chat) */}
+          <div className="lg:col-span-1">
+            <div className="h-[600px] lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
+              <Chat sessionId={sessionIdRef.current} />
+            </div>
           </div>
+
         </div>
       </div>
 
-      {/* END MODAL */}
+      {/* MODAL */}
       <Modal
         isOpen={isModalOpen}
         onRequestClose={closeModalAndNavigate}
-        className="relative bg-white rounded-xl shadow-2xl p-8 max-w-md mx-auto mt-32"
+        overlayClassName="fixed inset-0 bg-black/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4"
+        className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full outline-none relative overflow-hidden"
       >
-        <h2 className="text-3xl font-bold text-center text-gray-900 mb-4">Session Complete!</h2>
+        <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-indigo-500 to-purple-600"></div>
 
-        <div className="text-center my-8">
-          <p className="text-lg text-gray-700 mb-2">Average Stress</p>
-          <div className="inline-flex items-center justify-center w-32 h-32 rounded-full bg-indigo-50 mb-4">
-            <p className="text-5xl font-bold text-indigo-600">
-              {stressScores.length > 0
-                ? `${Math.round(stressScores.reduce((s, i) => s + i.score, 0) / stressScores.length)}%`
-                : "—"}
-            </p>
+        <h2 className="text-3xl font-bold text-center text-gray-900 mb-2 mt-4">Session Complete!</h2>
+        <p className="text-center text-gray-500 mb-8">Great job taking time for yourself.</p>
+
+        <div className="flex justify-center mb-8">
+          <div className="relative">
+            <div className="absolute inset-0 bg-indigo-100 rounded-full animate-ping opacity-20"></div>
+            <div className="w-40 h-40 rounded-full bg-indigo-50 flex flex-col items-center justify-center border-4 border-indigo-100 shadow-inner">
+              <span className="text-sm text-gray-500 font-medium uppercase tracking-wider">Avg Stress</span>
+              <span className="text-5xl font-bold text-indigo-600 mt-1">
+                {stressScores.length > 0
+                  ? Math.round(stressScores.reduce((s, i) => s + i.score, 0) / stressScores.length) + "%"
+                  : "—"}
+              </span>
+            </div>
           </div>
         </div>
 
-        <button
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={closeModalAndNavigate}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg"
+          className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all text-lg"
         >
           View Full Dashboard
-        </button>
+        </motion.button>
       </Modal>
     </div>
   );
