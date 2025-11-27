@@ -505,7 +505,8 @@ export default function SessionPage() {
     }
 
     try {
-      const res = await axios.post("http://localhost:5000/api/process_face", payload, { timeout: AXIOS_TIMEOUT_MS, headers });
+      const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await axios.post(`${BACKEND_URL}/api/process_face`, payload, { timeout: AXIOS_TIMEOUT_MS, headers });
       const data = res.data;
 
       // backend-side "processing" (if you send frames faster than model) => ignore

@@ -1,7 +1,7 @@
 // frontend/src/components/recommendationService.js
 // API service for fetching recommendations and nearby consultants
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : 'http://localhost:5000/api';
 
 /**
  * Get user's current location using browser geolocation API
