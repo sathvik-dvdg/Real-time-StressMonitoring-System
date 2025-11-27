@@ -2,13 +2,14 @@
 import React from 'react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/authContext/AuthContext';
 import './index.css';
 import App from './App.jsx';
 import SessionPage from './pages/SessionPage.jsx';
 import Landingpage from './pages/Landingpage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 // 💥 1. IMPORT THE NEW PAGES
 import ScenariosPage from './pages/ScenariosPage.jsx';
@@ -28,11 +29,23 @@ const router = createBrowserRouter([
       },
       {
         path: '/session',
-        element: <SessionPage />,
+        element: (
+          <ProtectedRoute>
+            <SessionPage />
+          </ProtectedRoute>
+        ),
       },
       {
-        path: '/summary',
-        element: <Dashboard />,
+        path: '/dashboard', // Renamed from /summary
+        element: (
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/summary', // Redirect old route
+        element: <Navigate to="/dashboard" replace />,
       },
       {
         path: '/login',
@@ -53,7 +66,11 @@ const router = createBrowserRouter([
       },
       {
         path: '/wellness',
-        element: <WellnessPage />,
+        element: (
+          <ProtectedRoute>
+            <WellnessPage />
+          </ProtectedRoute>
+        ),
       },
     ],
   },

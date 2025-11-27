@@ -16,6 +16,7 @@ export const getCurrentLocation = () => {
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
+                console.log("📍 Browser Geolocation:", position.coords.latitude, position.coords.longitude);
                 resolve({
                     lat: position.coords.latitude,
                     lon: position.coords.longitude,

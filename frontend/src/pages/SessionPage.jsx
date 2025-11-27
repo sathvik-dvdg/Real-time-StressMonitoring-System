@@ -61,6 +61,9 @@ export default function SessionPage() {
   const pendingRequests = useRef(0);
   const lastBackendErrorAt = useRef(0);
 
+  // Fix: Prevent double saving
+  const isSessionSavedRef = useRef(false);
+
   // ================================
   // START SESSION
   // ================================
@@ -128,14 +131,44 @@ export default function SessionPage() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
-    const vw = video.videoWidth || video.clientWidth || 640;
-    const vh = video.videoHeight || video.clientHeight || 480;
-    // Set canvas drawing buffer to exact video pixel dimensions
-    canvas.width = vw;
-    canvas.height = vh;
-    // Ensure CSS sizes match so Recharts / overlays have correct layout
-    canvas.style.width = `${video.clientWidth}px`;
-    canvas.style.height = `${video.clientHeight}px`;
+
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+    const elementWidth = video.clientWidth;
+    const elementHeight = video.clientHeight;
+
+    if (!videoWidth || !videoHeight || !elementWidth || !elementHeight) return;
+
+    // Set canvas internal resolution to match video source resolution
+    canvas.width = videoWidth;
+    canvas.height = videoHeight;
+
+    // Calculate the displayed dimensions of the video (object-fit: contain)
+    const videoRatio = videoWidth / videoHeight;
+    const elementRatio = elementWidth / elementHeight;
+
+    let renderWidth, renderHeight, renderLeft, renderTop;
+
+    if (elementRatio > videoRatio) {
+      // Container is wider than video -> Pillarbox (black bars on sides)
+      renderHeight = elementHeight;
+      renderWidth = elementHeight * videoRatio;
+      renderTop = 0;
+      renderLeft = (elementWidth - renderWidth) / 2;
+    } else {
+      // Container is taller than video -> Letterbox (black bars on top/bottom)
+      renderWidth = elementWidth;
+      renderHeight = elementWidth / videoRatio;
+      renderLeft = 0;
+      renderTop = (elementHeight - renderHeight) / 2;
+    }
+
+    // Apply styles to match the displayed video content exactly
+    canvas.style.width = `${renderWidth}px`;
+    canvas.style.height = `${renderHeight}px`;
+    canvas.style.left = `${renderLeft}px`;
+    canvas.style.top = `${renderTop}px`;
+    canvas.style.position = 'absolute';
   };
 
   // ================================
@@ -145,7 +178,16 @@ export default function SessionPage() {
   // SAVE SESSION TO FIRESTORE (Refactored for reuse)
   // ================================
   const saveSessionToFirestore = async () => {
+    // Prevent double saving
+    if (isSessionSavedRef.current) {
+      console.log("Session already saved, skipping.");
+      return;
+    }
+
     if (stressScores.length === 0) return;
+
+    // Mark as saved immediately to prevent race conditions
+    isSessionSavedRef.current = true;
 
     const sessionScoreSum = stressScores.reduce((s, item) => s + (item.score || 0), 0);
     const avg = Math.round(sessionScoreSum / stressScores.length);
@@ -243,6 +285,17 @@ export default function SessionPage() {
     saveSessionRef.current = saveSessionToFirestore;
   }, [stressScores, userLoggedIn, currentUser]);
 
+  // Keep overlay aligned on resize
+  useEffect(() => {
+    const handleResize = () => {
+      try {
+        setupOverlayCanvasSize();
+      } catch (e) { /* ignore */ }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // ================================
   // STOP SESSION
   // ================================
@@ -259,18 +312,23 @@ export default function SessionPage() {
     setSessionActive(false);
     setIsCameraReady(false);
 
-    await saveSessionToFirestore();
+    // Open modal immediately so user doesn't wait
     setIsModalOpen(true);
+
+    // Save in background
+    saveSessionToFirestore().catch(err => console.error("Background save failed:", err));
   };
 
   const closeModalAndNavigate = () => {
+    console.log("Navigating to dashboard...");
     setIsModalOpen(false);
-    navigate("/summary");
+    try {
+      navigate("/dashboard");
+    } catch (e) {
+      console.error("Navigation failed, using fallback:", e);
+      window.location.href = "/dashboard";
+    }
   };
-
-  // ================================
-  // TIMERS
-  // ================================
   useEffect(() => {
     if (isCameraReady && !sessionActive) {
       setSessionActive(true);
@@ -676,7 +734,7 @@ export default function SessionPage() {
                   autoPlay
                   muted
                   playsInline
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
                 <canvas
                   ref={canvasRef}
