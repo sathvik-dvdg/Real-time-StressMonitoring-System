@@ -195,41 +195,73 @@ RULES:
             "professional_support": []
         }
         
-        # Immediate actions based on stress level
-        if stress_score < 30:
-            recommendations["immediate_actions"] = [
-                "Take a moment to appreciate your current calm state",
-                "Practice gratitude by listing 3 things you're thankful for",
-                "Stretch your body gently for 2-3 minutes"
-            ]
-        elif stress_score < 60:
-            recommendations["immediate_actions"] = [
-                "Take 10 slow, deep breaths (4 seconds in, 6 seconds out)",
-                "Step away from your screen for a 5-minute walk",
-                "Listen to calming music or nature sounds"
-            ]
-        else:
-            recommendations["immediate_actions"] = [
-                "Practice the 4-7-8 breathing technique: inhale for 4, hold for 7, exhale for 8",
-                "Find a quiet space and close your eyes for 5 minutes",
-                "Drink a glass of water and do gentle neck rolls"
-            ]
+        # Extended pool of recommendations for randomization
+        import random
         
-        # Wellness activities
-        recommendations["wellness_activities"] = [
+        # Immediate actions pool
+        immediate_pool_low = [
+            "Take a moment to appreciate your current calm state",
+            "Practice gratitude by listing 3 things you're thankful for",
+            "Stretch your body gently for 2-3 minutes",
+            "Drink a glass of water to stay hydrated",
+            "Take 5 deep, conscious breaths",
+            "Look away from screens for 20 seconds at something 20 feet away"
+        ]
+        
+        immediate_pool_moderate = [
+            "Take 10 slow, deep breaths (4 seconds in, 6 seconds out)",
+            "Step away from your screen for a 5-minute walk",
+            "Listen to calming music or nature sounds",
+            "Do a quick body scan to release tension in shoulders and jaw",
+            "Splash cold water on your face",
+            "Squeeze a stress ball or clench and release your fists"
+        ]
+        
+        immediate_pool_high = [
+            "Practice the 4-7-8 breathing technique: inhale for 4, hold for 7, exhale for 8",
+            "Find a quiet space and close your eyes for 5 minutes",
+            "Drink a glass of water and do gentle neck rolls",
+            "Try the '5-4-3-2-1' grounding technique",
+            "Put on noise-cancelling headphones with white noise",
+            "Do 10 jumping jacks to release nervous energy"
+        ]
+        
+        # Wellness activities pool
+        wellness_pool = [
             "Schedule 20-30 minutes of physical exercise today",
             "Try a guided meditation session (apps like Headspace or Calm)",
             "Journal about your feelings for 10 minutes",
-            "Connect with a friend or loved one"
+            "Connect with a friend or loved one",
+            "Spend 15 minutes reading a book (not a screen)",
+            "Take a warm bath or shower before bed",
+            "Go for a mindful walk in nature",
+            "Practice yoga or stretching for 15 minutes",
+            "Write down your top 3 priorities for tomorrow to clear your mind",
+            "Cook a healthy meal from scratch"
         ]
+        
+        # Professional support pool
+        support_pool = [
+            "Consider speaking with a mental health professional if stress persists",
+            "Explore online therapy platforms like BetterHelp or Talkspace",
+            "Contact your employee assistance program (EAP) if available",
+            "Look for local support groups for stress management",
+            "Read articles on cognitive behavioral therapy (CBT) techniques"
+        ]
+
+        # Select random items
+        if stress_score < 30:
+            recommendations["immediate_actions"] = random.sample(immediate_pool_low, min(3, len(immediate_pool_low)))
+        elif stress_score < 60:
+            recommendations["immediate_actions"] = random.sample(immediate_pool_moderate, min(3, len(immediate_pool_moderate)))
+        else:
+            recommendations["immediate_actions"] = random.sample(immediate_pool_high, min(3, len(immediate_pool_high)))
+        
+        recommendations["wellness_activities"] = random.sample(wellness_pool, min(4, len(wellness_pool)))
         
         # Professional support (for moderate to high stress)
         if stress_score >= 40:
-            recommendations["professional_support"] = [
-                "Consider speaking with a mental health professional if stress persists",
-                "Explore online therapy platforms like BetterHelp or Talkspace",
-                "Contact your employee assistance program (EAP) if available"
-            ]
+            recommendations["professional_support"] = random.sample(support_pool, min(3, len(support_pool)))
         
         if stress_score >= 70:
             recommendations["professional_support"].insert(0,

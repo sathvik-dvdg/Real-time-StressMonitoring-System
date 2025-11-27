@@ -1,15 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  BrainCircuit, 
-  LineChart, 
-  MessageSquareText, 
-  MoveRight, 
-  MonitorPlay 
+import {
+  BrainCircuit,
+  LineChart,
+  MessageSquareText,
+  MoveRight,
+  MonitorPlay
 } from 'lucide-react';
 // 1. Import your new, reliable Lottie component
-import FaceMeshAnimation from '../components/FaceMeshAnimation'; 
+import FaceMeshAnimation from '../components/FaceMeshAnimation';
 
 // ... (your animation variants are unchanged) ...
 const containerVariants = {
@@ -38,19 +38,19 @@ const Landingpage = () => {
   return (
     // We are still using the animated-bg for the particles/grid
     <div className="relative isolate w-full flex items-center justify-center py-24 animated-bg">
-      
+
       {/* 2. Add the new FaceMeshAnimation component. */}
       {/* It will sit on z-index 5, behind the content */}
       <FaceMeshAnimation />
 
       {/* 3. Your content layer sits on top (z-index 10) */}
-      <motion.div 
+      <motion.div
         className="max-w-4xl mx-auto px-6 py-12 text-center content-layer"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        <motion.h1 
+        <motion.h1
           className="text-5xl font-bold text-white mb-6"
           variants={itemVariants}
         >
@@ -59,17 +59,17 @@ const Landingpage = () => {
           </span> Stress Detection System
         </motion.h1>
 
-        <motion.p 
+        <motion.p
           className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto"
           variants={itemVariants}
         >
-          Monitor your stress levels in real-time. Our AI analyzes your 
+          Monitor your stress levels in real-time. Our AI analyzes your
           facial and textual cues to provide objective insights into your well-being.
         </motion.p>
-        
+
         {/* ... (Rest of your buttons and sections are UNCHANGED) ... */}
 
-        <motion.div 
+        <motion.div
           className="flex flex-col sm:flex-row gap-4 justify-center mb-12"
           variants={itemVariants}
         >
@@ -81,14 +81,14 @@ const Landingpage = () => {
             <MoveRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
           <Link
-            to="/summary"
+            to="/dashboard"
             className="bg-transparent hover:bg-blue-500/10 text-blue-300 font-semibold py-3 px-8 rounded-lg border-2 border-blue-500 transition duration-300"
           >
             View My Dashboard
           </Link>
         </motion.div>
 
-        <motion.div 
+        <motion.div
           className="mt-20"
           variants={itemVariants}
         >
@@ -120,7 +120,7 @@ const Landingpage = () => {
           </div>
         </motion.div>
 
-        <motion.div 
+        <motion.div
           className="grid md:grid-cols-3 gap-8 mt-20"
           variants={itemVariants}
         >
@@ -146,7 +146,7 @@ const Landingpage = () => {
             <p className="text-gray-400">Chat with an AI assistant to get tips or just to vent.</p>
           </div>
         </motion.div>
-        
+
       </motion.div>
     </div>
   );
