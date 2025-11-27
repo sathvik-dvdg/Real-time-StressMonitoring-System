@@ -58,7 +58,7 @@ networkx==3.5
 numpy==1.26.4
 opencv-contrib-python==4.11.0.86
 opencv-python==4.7.0.72
-<<<<<<< HEAD
+
 
 # Textual Analysis (RoBERTa)
 torch
