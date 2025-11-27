@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   BrainCircuit,
@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 // 1. Import your new, reliable Lottie component
 import FaceMeshAnimation from '../components/FaceMeshAnimation';
+import AccessDeniedModal from '../components/AccessDeniedModal';
+import { useAuth } from '../context/authContext/AuthContext';
 
 // ... (your animation variants are unchanged) ...
 const containerVariants = {
@@ -35,9 +37,26 @@ const itemVariants = {
 };
 
 const Landingpage = () => {
+  const { userLoggedIn } = useAuth();
+  const [showAccessDenied, setShowAccessDenied] = useState(false);
+  const navigate = useNavigate();
+
+  const handleProtectedAction = (path) => {
+    if (userLoggedIn) {
+      navigate(path);
+    } else {
+      setShowAccessDenied(true);
+    }
+  };
+
   return (
     // We are still using the animated-bg for the particles/grid
     <div className="relative isolate w-full flex items-center justify-center py-24 animated-bg">
+
+      <AccessDeniedModal
+        isOpen={showAccessDenied}
+        onClose={() => setShowAccessDenied(false)}
+      />
 
       {/* 2. Add the new FaceMeshAnimation component. */}
       {/* It will sit on z-index 5, behind the content */}
@@ -73,19 +92,19 @@ const Landingpage = () => {
           className="flex flex-col sm:flex-row gap-4 justify-center mb-12"
           variants={itemVariants}
         >
-          <Link
-            to="/session"
+          <button
+            onClick={() => handleProtectedAction('/session')}
             className="group flex items-center justify-center gap-x-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-8 rounded-lg transition duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50"
           >
             Start New Session
             <MoveRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-          </Link>
-          <Link
-            to="/dashboard"
+          </button>
+          <button
+            onClick={() => handleProtectedAction('/dashboard')}
             className="bg-transparent hover:bg-blue-500/10 text-blue-300 font-semibold py-3 px-8 rounded-lg border-2 border-blue-500 transition duration-300"
           >
             View My Dashboard
-          </Link>
+          </button>
         </motion.div>
 
         <motion.div

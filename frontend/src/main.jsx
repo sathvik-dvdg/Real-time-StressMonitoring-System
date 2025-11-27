@@ -9,6 +9,7 @@ import App from './App.jsx';
 import SessionPage from './pages/SessionPage.jsx';
 import Landingpage from './pages/Landingpage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 // 💥 1. IMPORT THE NEW PAGES
 import ScenariosPage from './pages/ScenariosPage.jsx';
@@ -28,11 +29,19 @@ const router = createBrowserRouter([
       },
       {
         path: '/session',
-        element: <SessionPage />,
+        element: (
+          <ProtectedRoute>
+            <SessionPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: '/dashboard', // Renamed from /summary
-        element: <Dashboard />,
+        element: (
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        ),
       },
       {
         path: '/summary', // Redirect old route
@@ -57,7 +66,11 @@ const router = createBrowserRouter([
       },
       {
         path: '/wellness',
-        element: <WellnessPage />,
+        element: (
+          <ProtectedRoute>
+            <WellnessPage />
+          </ProtectedRoute>
+        ),
       },
     ],
   },

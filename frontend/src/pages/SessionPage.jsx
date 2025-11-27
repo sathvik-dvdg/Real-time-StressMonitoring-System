@@ -61,6 +61,9 @@ export default function SessionPage() {
   const pendingRequests = useRef(0);
   const lastBackendErrorAt = useRef(0);
 
+  // Fix: Prevent double saving
+  const isSessionSavedRef = useRef(false);
+
   // ================================
   // START SESSION
   // ================================
@@ -175,7 +178,16 @@ export default function SessionPage() {
   // SAVE SESSION TO FIRESTORE (Refactored for reuse)
   // ================================
   const saveSessionToFirestore = async () => {
+    // Prevent double saving
+    if (isSessionSavedRef.current) {
+      console.log("Session already saved, skipping.");
+      return;
+    }
+
     if (stressScores.length === 0) return;
+
+    // Mark as saved immediately to prevent race conditions
+    isSessionSavedRef.current = true;
 
     const sessionScoreSum = stressScores.reduce((s, item) => s + (item.score || 0), 0);
     const avg = Math.round(sessionScoreSum / stressScores.length);
@@ -317,7 +329,6 @@ export default function SessionPage() {
       window.location.href = "/dashboard";
     }
   };
-
   useEffect(() => {
     if (isCameraReady && !sessionActive) {
       setSessionActive(true);
