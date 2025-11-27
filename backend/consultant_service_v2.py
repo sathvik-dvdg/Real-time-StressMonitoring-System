@@ -39,7 +39,8 @@ class ConsultantService:
             viewbox = f"{min_lon},{max_lat},{max_lon},{min_lat}"
             
             headers = {
-                'User-Agent': 'StressMonitorApp/1.0 (contact@example.com)'
+                'User-Agent': 'StressReliefApp/1.0 (sairaj.student.project@gmail.com)',
+                'Referer': 'http://localhost:5173/'
             }
             
             # Try multiple search terms for better results
