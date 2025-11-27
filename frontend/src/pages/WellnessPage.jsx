@@ -61,8 +61,15 @@ export default function WellnessPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 p-6">
-            <div className="max-w-7xl mx-auto">
+        <div className="wellness-bg min-h-screen p-6 relative">
+            {/* Floating Particles */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                <div className="absolute top-10 left-10 w-4 h-4 bg-blue-400 rounded-full opacity-20 animate-bounce"></div>
+                <div className="absolute bottom-20 right-20 w-6 h-6 bg-purple-400 rounded-full opacity-20 animate-pulse"></div>
+                <div className="absolute top-1/2 left-1/3 w-3 h-3 bg-green-400 rounded-full opacity-20 animate-ping"></div>
+            </div>
+
+            <div className="max-w-7xl mx-auto relative z-10">
                 <motion.div
                     className="mb-8 flex items-center"
                     initial={{ opacity: 0, x: -20 }}
@@ -83,10 +90,10 @@ export default function WellnessPage() {
                     animate="visible"
                     className="space-y-8"
                 >
-                    <motion.div variants={itemVariants}>
+                    <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white/50">
                         <div className="flex items-center space-x-3 mb-2">
                             <div className="p-2 bg-purple-100 rounded-lg">
-                                <Sparkles className="w-6 h-6 text-purple-600" />
+                                <Sparkles className="w-6 h-6 text-purple-600 animate-spin-slow" />
                             </div>
                             <h1 className="text-3xl font-bold text-gray-900">AI Wellness Summary</h1>
                         </div>

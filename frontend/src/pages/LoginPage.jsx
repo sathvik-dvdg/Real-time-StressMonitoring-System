@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/authContext/AuthContext';
-import { 
-  doCreateUserWithEmailAndPassword, 
-  doSignInWithEmailAndPassword, 
-  doSignInWithGoogle 
+import {
+  doCreateUserWithEmailAndPassword,
+  doSignInWithEmailAndPassword,
+  doSignInWithGoogle
 } from '../database/auth';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, Smile, ArrowRight } from 'lucide-react';
 
 const LoginPage = () => {
-  const { userLoggedIn } = useAuth(); 
+  const { userLoggedIn } = useAuth();
+  const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,28 +21,33 @@ const LoginPage = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const navigate = useNavigate();
+  // Motivational quotes that change on refresh (or toggle)
+  const quotes = [
+    "Peace comes from within. Do not seek it without.",
+    "Every moment is a fresh beginning.",
+    "Breath is the bridge which connects life to consciousness.",
+    "Calmness is the cradle of power."
+  ];
+  const [quote, setQuote] = useState(quotes[0]);
 
-  // Redirect logged-in users to landing page
+  useEffect(() => {
+    setQuote(quotes[Math.floor(Math.random() * quotes.length)]);
+  }, [isSignUp]);
+
   useEffect(() => {
     if (userLoggedIn) {
       navigate('/');
     }
   }, [userLoggedIn, navigate]);
 
-  // ---------------------------
-  // LOGIN HANDLER
-  // ---------------------------
   const handleLogin = async (e) => {
     e.preventDefault();
     if (isSigningIn) return;
-
     setIsSigningIn(true);
     setErrorMessage('');
-
     try {
       await doSignInWithEmailAndPassword(email, password);
-      navigate('/');   // ✔ FIXED REDIRECT
+      navigate('/');
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -48,9 +55,6 @@ const LoginPage = () => {
     }
   };
 
-  // ---------------------------
-  // SIGNUP HANDLER
-  // ---------------------------
   const handleSignUp = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
@@ -58,13 +62,11 @@ const LoginPage = () => {
       return;
     }
     if (isSigningIn) return;
-
     setIsSigningIn(true);
     setErrorMessage('');
-
     try {
       await doCreateUserWithEmailAndPassword(email, password);
-      navigate('/');   // ✔ FIXED REDIRECT
+      navigate('/');
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -72,19 +74,14 @@ const LoginPage = () => {
     }
   };
 
-  // ---------------------------
-  // GOOGLE LOGIN HANDLER
-  // ---------------------------
   const onGoogleSignIn = async (e) => {
     e.preventDefault();
     if (isSigningIn) return;
-
     setIsSigningIn(true);
     setErrorMessage('');
-
     try {
       await doSignInWithGoogle();
-      navigate('/');   // ✔ FIXED REDIRECT
+      navigate('/');
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -92,170 +89,176 @@ const LoginPage = () => {
     }
   };
 
-  // ----------------------------------
-  // FORM CONTENT (LOGIN / SIGNUP)
-  // ----------------------------------
-  const formContent = isSignUp ? (
-    <>
-      <div className="flex flex-col items-start pb-8">
-        <h1 className="text-3xl font-bold tracking-tighter text-slate-800">Create an account!</h1>
-        <p className="text-base text-slate-500">Sign up to get started.</p>
-      </div>
-
-      <form className="flex flex-col gap-y-4" onSubmit={handleSignUp}>
-        {errorMessage && <p className="text-red-500 text-sm text-center">{errorMessage}</p>}
-
-        <input
-          className="form-input w-full rounded-lg border-slate-300 px-4 py-3 text-base placeholder:text-slate-400"
-          placeholder="Full Name"
-          type="text"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          required
-        />
-
-        <input
-          className="form-input w-full rounded-lg border-slate-300 px-4 py-3 text-base placeholder:text-slate-400"
-          placeholder="E-mail"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-
-        <input
-          className="form-input w-full rounded-lg border-slate-300 px-4 py-3 text-base placeholder:text-slate-400"
-          placeholder="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-
-        <input
-          className="form-input w-full rounded-lg border-slate-300 px-4 py-3 text-base placeholder:text-slate-400"
-          placeholder="Confirm Password"
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-        />
-
-        <button
-          type="submit"
-          className={`flex h-12 w-full items-center justify-center rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 px-5 text-base font-semibold text-white shadow-lg shadow-blue-500/30 ${
-            isSigningIn ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-          disabled={isSigningIn}
-        >
-          {isSigningIn ? 'Signing Up...' : 'SIGN UP'}
-        </button>
-      </form>
-
-      <p className="pt-6 text-center text-sm text-slate-600">
-        Already have an account?{' '}
-        <button className="font-semibold text-purple-500" onClick={() => { setIsSignUp(false); setErrorMessage(''); }}>
-          Sign in.
-        </button>
-      </p>
-    </>
-  ) : (
-    <>
-      <div className="flex flex-col items-start pb-8">
-        <h1 className="text-3xl font-bold tracking-tighter text-slate-800">Welcome Back!</h1>
-        <p className="text-base text-slate-500">Sign in to your account.</p>
-      </div>
-
-      <form className="flex flex-col gap-y-4" onSubmit={handleLogin}>
-        {errorMessage && <p className="text-red-500 text-sm text-center">{errorMessage}</p>}
-
-        <input
-          className="form-input w-full rounded-lg border-slate-300 px-4 py-3 text-base placeholder:text-slate-400"
-          placeholder="E-mail"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-
-        <input
-          className="form-input w-full rounded-lg border-slate-300 px-4 py-3 text-base placeholder:text-slate-400"
-          placeholder="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-
-        <div className="flex items-center justify-between text-sm pt-2">
-          <label className="flex items-center text-slate-600">
-            <input className="form-checkbox h-4 w-4 rounded text-purple-600 border-slate-300" type="checkbox" />
-            <span className="ml-2">Remember me</span>
-          </label>
-          <a className="font-semibold text-purple-500 hover:text-purple-600" href="#">
-            Forgot password?
-          </a>
-        </div>
-
-        <button
-          type="submit"
-          className={`flex h-12 w-full items-center justify-center rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 px-5 text-base font-semibold text-white shadow-lg shadow-blue-500/30 ${
-            isSigningIn ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-          disabled={isSigningIn}
-        >
-          {isSigningIn ? 'Signing In...' : 'SIGN IN'}
-        </button>
-
-        <button
-          type="button"
-          className={`flex h-12 w-full items-center justify-center rounded-lg bg-white px-5 text-base font-semibold text-slate-800 shadow-lg border border-slate-300 ${
-            isSigningIn ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-          onClick={onGoogleSignIn}
-          disabled={isSigningIn}
-        >
-          <span className="truncate">SIGN IN WITH GOOGLE</span>
-        </button>
-      </form>
-
-      <p className="pt-6 text-center text-sm text-slate-600">
-        Don't have an account?{' '}
-        <button className="font-semibold text-purple-500" onClick={() => { setIsSignUp(true); setErrorMessage(''); }}>
-          Create.
-        </button>
-      </p>
-    </>
-  );
-
-  // RIGHT SIDE CONTENT
-  const welcomeContent = isSignUp ? (
-    <div className="relative h-full w-full flex flex-col items-center justify-center p-6 text-center">
-      <h2 className="text-2xl font-bold text-slate-800">Welcome!</h2>
-      <ul className="mt-4 list-disc space-y-2 pl-5 text-left text-slate-600">
-        <li>Track your stress levels seamlessly.</li>
-        <li>Get real-time AI-powered feedback.</li>
-        <li>Unlock your wellness insights.</li>
-      </ul>
-    </div>
-  ) : (
-    <div className="relative h-full w-full flex flex-col items-center justify-center p-6 text-center">
-      <h2 className="text-2xl font-bold text-slate-800">Welcome Back!</h2>
-      <p className="text-base text-slate-600">Sign in to view your dashboard and start a new session.</p>
-    </div>
-  );
+  // Animation Variants
+  const cardVariants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: "easeOut" } },
+    exit: { opacity: 0, scale: 0.95, transition: { duration: 0.3 } }
+  };
 
   return (
-    <div className="relative flex size-full min-h-screen flex-col justify-center bg-gray-50 overflow-x-hidden p-6">
-      <motion.div
-        className="flex w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-lg overflow-hidden"
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-      >
-        <div className="w-1/2 p-8 flex flex-col justify-center">{formContent}</div>
-        <div className="w-1/2 bg-gradient-to-b from-purple-100 to-blue-100 relative">{welcomeContent}</div>
-      </motion.div>
+    <div className="login-bg min-h-screen flex items-center justify-center p-6">
+      <AnimatePresence mode='wait'>
+        <motion.div
+          key={isSignUp ? "signup" : "login"}
+          className="glass-card w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10"
+          variants={cardVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+        >
+          {/* LEFT PANEL: FORM */}
+          <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center bg-white/40 backdrop-blur-sm">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
+                {isSignUp ? "Create Account" : "Welcome Back"}
+              </h1>
+              <p className="text-slate-600 mt-2">
+                {isSignUp ? "Join us to start your wellness journey." : "Sign in to continue your progress."}
+              </p>
+            </div>
+
+            <form className="flex flex-col gap-5" onSubmit={isSignUp ? handleSignUp : handleLogin}>
+              {errorMessage && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 bg-red-100 text-red-600 text-sm rounded-lg text-center"
+                >
+                  {errorMessage}
+                </motion.div>
+              )}
+
+              {isSignUp && (
+                <div className="relative">
+                  <input
+                    className="w-full rounded-xl border-none bg-white/60 px-4 py-3 text-base shadow-sm focus:ring-2 focus:ring-purple-400 outline-none transition-all placeholder:text-slate-400"
+                    placeholder="Full Name"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
+
+              <input
+                className="w-full rounded-xl border-none bg-white/60 px-4 py-3 text-base shadow-sm focus:ring-2 focus:ring-purple-400 outline-none transition-all placeholder:text-slate-400"
+                placeholder="Email Address"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+
+              <input
+                className="w-full rounded-xl border-none bg-white/60 px-4 py-3 text-base shadow-sm focus:ring-2 focus:ring-purple-400 outline-none transition-all placeholder:text-slate-400"
+                placeholder="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+
+              {isSignUp && (
+                <input
+                  className="w-full rounded-xl border-none bg-white/60 px-4 py-3 text-base shadow-sm focus:ring-2 focus:ring-purple-400 outline-none transition-all placeholder:text-slate-400"
+                  placeholder="Confirm Password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              )}
+
+              {!isSignUp && (
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center text-slate-600 cursor-pointer">
+                    <input className="form-checkbox h-4 w-4 text-purple-600 rounded border-slate-300 focus:ring-purple-400" type="checkbox" />
+                    <span className="ml-2">Remember me</span>
+                  </label>
+                  <a className="font-medium text-purple-600 hover:text-purple-700 transition-colors" href="#">
+                    Forgot password?
+                  </a>
+                </div>
+              )}
+
+              <motion.button
+                whileHover={{ scale: 1.02, boxShadow: "0 10px 25px -5px rgba(124, 58, 237, 0.4)" }}
+                whileTap={{ scale: 0.98 }}
+                type="submit"
+                className={`mt-2 flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold tracking-wide shadow-lg transition-all ${isSigningIn ? 'opacity-70 cursor-not-allowed' : ''
+                  }`}
+                disabled={isSigningIn}
+              >
+                {isSigningIn ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    {isSignUp ? 'SIGN UP' : 'SIGN IN'} <ArrowRight className="w-5 h-5" />
+                  </span>
+                )}
+              </motion.button>
+
+              {!isSignUp && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                  className="flex h-12 w-full items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold shadow-sm hover:bg-slate-50 transition-all"
+                  onClick={onGoogleSignIn}
+                  disabled={isSigningIn}
+                >
+                  <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5 mr-3" alt="Google" />
+                  Sign in with Google
+                </motion.button>
+              )}
+            </form>
+
+            <div className="mt-8 text-center">
+              <p className="text-slate-600">
+                {isSignUp ? "Already have an account?" : "Don't have an account?"}{' '}
+                <button
+                  className="font-bold text-purple-600 hover:text-purple-700 transition-colors"
+                  onClick={() => { setIsSignUp(!isSignUp); setErrorMessage(''); }}
+                >
+                  {isSignUp ? "Sign In" : "Create Account"}
+                </button>
+              </p>
+            </div>
+          </div>
+
+          {/* RIGHT PANEL: WELCOME / DECORATIVE */}
+          <div className="hidden md:flex w-1/2 bg-gradient-to-br from-purple-600 to-indigo-600 p-12 flex-col justify-between text-white relative overflow-hidden">
+            {/* Abstract Shapes */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-400/20 rounded-full blur-3xl -ml-16 -mb-16"></div>
+
+            <div className="relative z-10">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6">
+                <Sparkles className="w-6 h-6 text-yellow-300" />
+              </div>
+              <h2 className="text-4xl font-bold leading-tight mb-4">
+                {isSignUp ? "Begin Your Journey" : "Welcome Back"}
+              </h2>
+              <p className="text-indigo-100 text-lg">
+                Experience real-time stress monitoring and AI-powered wellness insights.
+              </p>
+            </div>
+
+            <div className="relative z-10 bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10">
+              <Smile className="w-8 h-8 text-yellow-300 mb-4" />
+              <p className="text-lg font-medium italic">"{quote}"</p>
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 };

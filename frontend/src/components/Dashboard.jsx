@@ -264,167 +264,173 @@ export default function Dashboard() {
   // UI
   // -----------------------------------------------------
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* TITLE + Start Session */}
-      <div className="flex justify-between items-center mb-6">
-        <motion.h2
-          className="text-3xl font-bold text-gray-800"
-          variants={itemVariants}
+    <div className="dashboard-bg min-h-screen p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* TITLE + Start Session */}
+        <div className="flex justify-between items-center mb-6">
+          <motion.h2
+            className="text-3xl font-bold text-gray-800"
+            variants={itemVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            Stress Dashboard
+          </motion.h2>
+
+          <motion.button
+            whileHover={{ scale: 1.05, boxShadow: "0 0 15px rgba(79, 70, 229, 0.5)" }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => (window.location.href = "/session")}
+            className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold shadow-lg transition-all"
+          >
+            <Play className="w-5 h-5 mr-2" />
+            Start New Session
+          </motion.button>
+        </div>
+
+        {/* SUMMARY CARDS */}
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8"
+          variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          Stress Dashboard
-        </motion.h2>
+          <StatCard label="Total Sessions" value={summary.totalSessions} color="indigo" />
+          <StatCard label="Total Readings" value={summary.totalReadings} color="blue" />
+          <StatCard
+            label="Avg Stress"
+            value={
+              sessions.length
+                ? Math.floor(
+                  sessions.reduce((a, b) => a + (b.averageScore || 0), 0) /
+                  sessions.length
+                ) + "%"
+                : "—"
+            }
+            color="green"
+          />
+          <StatCard
+            label="Highest Stress"
+            value={
+              sessions.length
+                ? Math.max(...sessions.map((s) => s.averageScore || 0)) + "%"
+                : "—"
+            }
+            color="red"
+          />
+        </motion.div>
 
-        <button
-          onClick={() => (window.location.href = "/session")}
-          className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold shadow hover:bg-indigo-700"
-        >
-          <Play className="w-5 h-5 mr-2" />
-          Start New Session
-        </button>
-      </div>
+        {/* LINE + PIE */}
+        <motion.div className="grid grid-cols-1 lg:grid-cols-3 gap-6" variants={itemVariants}>
+          {/* LINE CHART */}
+          <div className="lg:col-span-2 bg-white rounded-xl shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Stress Trend</h3>
 
-      {/* SUMMARY CARDS */}
-      <motion.div
-        className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <StatCard label="Total Sessions" value={summary.totalSessions} color="indigo" />
-        <StatCard label="Total Readings" value={summary.totalReadings} color="blue" />
-        <StatCard
-          label="Avg Stress"
-          value={
-            sessions.length
-              ? Math.floor(
-                sessions.reduce((a, b) => a + (b.averageScore || 0), 0) /
-                sessions.length
-              ) + "%"
-              : "—"
-          }
-          color="green"
-        />
-        <StatCard
-          label="Highest Stress"
-          value={
-            sessions.length
-              ? Math.max(...sessions.map((s) => s.averageScore || 0)) + "%"
-              : "—"
-          }
-          color="red"
-        />
-      </motion.div>
-
-      {/* LINE + PIE */}
-      <motion.div className="grid grid-cols-1 lg:grid-cols-3 gap-6" variants={itemVariants}>
-        {/* LINE CHART */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Stress Trend</h3>
-
-          {mounted && fusedData.length > 0 ? (
-            <div style={{ width: "100%", height: 300 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={fusedData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Line dataKey="masterStress" stroke="#4F46E5" strokeWidth={3} />
-                  <Line dataKey="facial" stroke="#10B981" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <p className="text-center text-gray-500 py-10">No data yet</p>
-          )}
-        </div>
-
-        {/* PIE CHART */}
-        <div className="bg-white rounded-xl shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Top 7 Emotions</h3>
-
-          {mounted && emotionPie.length > 0 ? (
-            <div style={{ width: "100%", height: 300 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={emotionPie}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    labelLine={false}
-                    paddingAngle={4}
-                    label={({ name, value }) => `${name}: ${value}%`}
-                  >
-                    {emotionPie.map((e, i) => (
-                      <Cell
-                        key={i}
-                        fill={EMOTION_COLORS[e.name.toLowerCase()] || DEFAULT_COLOR}
-                      />
-                    ))}
-                  </Pie>
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="text-center text-gray-500 py-10">
-              <AlertCircle className="w-8 h-8 mx-auto mb-2" />
-              No emotion data found
-            </div>
-          )}
-        </div>
-      </motion.div>
-
-      {/* AI SUMMARY GENERATOR BUTTON */}
-      <motion.div className="mt-8 flex justify-center" variants={itemVariants}>
-        <button
-          onClick={() => (window.location.href = "/wellness")}
-          className="flex items-center px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all"
-        >
-          <Sparkles className="w-6 h-6 mr-3" />
-          AI Summary Generator
-        </button>
-      </motion.div>
-
-      {/* ALL SESSIONS LIST */}
-      <motion.div className="bg-white rounded-xl shadow p-6 mt-8" variants={itemVariants}>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">All Sessions History</h3>
-
-        {sessions.length === 0 ? (
-          <p className="text-center text-gray-500 py-10">No sessions yet</p>
-        ) : (
-          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-            {sessions.map((s) => {
-              const info = getStressLevelInfo(s.averageScore);
-              return (
-                <div
-                  key={s.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${info.bgColor} ${info.color}`}>
-                      {info.level}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">Session {s.id.slice(-6)}</p>
-                      <p className="text-sm text-gray-600">{getTimeAgo(s.timestamp)}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-gray-900">{s.averageScore}%</p>
-                    <p className="text-sm text-gray-500">{s.scoresCount || "—"} readings</p>
-                  </div>
-                </div>
-              );
-            })}
+            {mounted && fusedData.length > 0 ? (
+              <div style={{ width: "100%", height: 300 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={fusedData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="time" />
+                    <YAxis domain={[0, 100]} />
+                    <Tooltip />
+                    <Legend />
+                    <Line dataKey="masterStress" stroke="#4F46E5" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 8, stroke: "#4F46E5", strokeWidth: 2, fill: "#fff" }} isAnimationActive={true} animationDuration={1500} />
+                    <Line dataKey="facial" stroke="#10B981" strokeWidth={2} dot={false} isAnimationActive={true} animationDuration={1500} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-center text-gray-500 py-10">No data yet</p>
+            )}
           </div>
-        )}      </motion.div>
+
+          {/* PIE CHART */}
+          <div className="bg-white rounded-xl shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Top 7 Emotions</h3>
+
+            {mounted && emotionPie.length > 0 ? (
+              <div style={{ width: "100%", height: 300 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={emotionPie}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      labelLine={false}
+                      paddingAngle={4}
+                      label={({ name, value }) => `${name}: ${value}%`}
+                    >
+                      {emotionPie.map((e, i) => (
+                        <Cell
+                          key={i}
+                          fill={EMOTION_COLORS[e.name.toLowerCase()] || DEFAULT_COLOR}
+                          className="hover:opacity-80 transition-opacity cursor-pointer"
+                        />
+                      ))}
+                    </Pie>
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-10">
+                <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                No emotion data found
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* AI SUMMARY GENERATOR BUTTON */}
+        <motion.div className="mt-8 flex justify-center" variants={itemVariants}>
+          <button
+            onClick={() => (window.location.href = "/wellness")}
+            className="flex items-center px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all"
+          >
+            <Sparkles className="w-6 h-6 mr-3" />
+            AI Summary Generator
+          </button>
+        </motion.div>
+
+        {/* ALL SESSIONS LIST */}
+        <motion.div className="bg-white rounded-xl shadow p-6 mt-8" variants={itemVariants}>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">All Sessions History</h3>
+
+          {sessions.length === 0 ? (
+            <p className="text-center text-gray-500 py-10">No sessions yet</p>
+          ) : (
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+              {sessions.map((s) => {
+                const info = getStressLevelInfo(s.averageScore);
+                return (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${info.bgColor} ${info.color}`}>
+                        {info.level}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">Session {s.id.slice(-6)}</p>
+                        <p className="text-sm text-gray-600">{getTimeAgo(s.timestamp)}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-gray-900">{s.averageScore}%</p>
+                      <p className="text-sm text-gray-500">{s.scoresCount || "—"} readings</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
+      </div>
     </div>
   );
 }
@@ -440,7 +446,11 @@ function StatCard({ label, value, color }) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow p-6 flex items-start space-x-4 border">
+    <motion.div
+      variants={itemVariants}
+      whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
+      className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm p-6 flex items-start space-x-4 border border-white/50"
+    >
       <div className={`p-3 rounded-xl ${colors[color] || "bg-gray-100"}`}>
         <Activity className="w-5 h-5" />
       </div>
@@ -448,6 +458,6 @@ function StatCard({ label, value, color }) {
         <p className="text-sm text-gray-500">{label}</p>
         <h4 className="text-2xl font-bold text-gray-900 mt-1">{value}</h4>
       </div>
-    </div>
+    </motion.div>
   );
 }
