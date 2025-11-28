@@ -63,8 +63,18 @@ get_text_model_and_tokenizer = _proc_attr("get_text_model_and_tokenizer")
 # Flask App
 # -----------------------------
 app = Flask(__name__)
-# FIXED: Restrict CORS to frontend origin (adjust port if needed)
-CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173", "https://inquisitive-paletas-990fcd.netlify.app"]}})
+# Allow all origins for API endpoints
+CORS(app,
+     resources={r"/api/*": {"origins": "*"}},
+     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     expose_headers=["Content-Type"])
+
+@app.before_request
+def _handle_options():
+    # Safely handle preflight requests before rate-limiter or other middlewares block them.
+    if request.method == "OPTIONS":
+        return ("", 204)
 
 # Initialize rate limiter
 limiter = Limiter(
