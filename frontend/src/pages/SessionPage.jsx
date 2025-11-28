@@ -28,7 +28,7 @@ const CAPTURE_INTERVAL_MS = 200;          // ~5 FPS (reduced to avoid MediaPipe 
 const SMOOTHING_WINDOW = 5;
 const MAX_PENDING_REQUESTS = 1;           // reduce concurrent requests
 const BACKEND_ERROR_COOLDOWN_MS = 2000;   // when backend 500 occurs, pause sends for this long
-const AXIOS_TIMEOUT_MS = 8000;            // request timeout
+const AXIOS_TIMEOUT_MS = 20000;            // request timeout (increased to 20s)
 
 // ================================
 // SessionPage (patched)
@@ -505,7 +505,8 @@ export default function SessionPage() {
     }
 
     try {
-      const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const BACKEND_URL = isLocal ? 'http://localhost:5000' : 'https://real-time-stressmonitoring-system.onrender.com';
       const res = await axios.post(`${BACKEND_URL}/api/process_face`, payload, { timeout: AXIOS_TIMEOUT_MS, headers });
       const data = res.data;
 
@@ -548,9 +549,16 @@ export default function SessionPage() {
       // robust logging & graceful backoff
       if (axios.isAxiosError(err)) {
         const status = err.response?.status;
-        console.error("sendFrameToBackend Axios error:", status, err.message);
-        if (status === 500 || status === 502 || status === 503) {
-          // mark backend down for short cooldown to prevent repeated 500s
+        const code = err.code;
+
+        if (code === 'ECONNABORTED') {
+          console.warn("sendFrameToBackend timed out (exceeded " + AXIOS_TIMEOUT_MS + "ms)");
+        } else {
+          console.error("sendFrameToBackend Axios error:", status, err.message);
+        }
+
+        if (status === 500 || status === 502 || status === 503 || code === 'ECONNABORTED') {
+          // mark backend down for short cooldown to prevent repeated 500s or timeouts
           lastBackendErrorAt.current = Date.now();
           setBackendDown(true);
         }

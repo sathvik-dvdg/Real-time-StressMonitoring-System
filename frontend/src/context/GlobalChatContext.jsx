@@ -46,7 +46,10 @@ export function GlobalChatProvider({ children }) {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const API_BASE_URL = isLocal ? 'http://localhost:5000' : 'https://real-time-stressmonitoring-system.onrender.com';
+    const AXIOS_TIMEOUT_MS = 20000;
+
     // Use the specific session ID if provided (e.g. from SessionPage), otherwise use global
     const currentSessionId = activeSessionId || globalSessionId.current;
 
@@ -55,14 +58,14 @@ export function GlobalChatProvider({ children }) {
       const chatPromise = axios.post(`${API_BASE_URL}/api/chat`, {
         prompt: prompt,
         userId: userId,
-      });
+      }, { timeout: AXIOS_TIMEOUT_MS });
 
       const stressPromise = axios.post(`${API_BASE_URL}/api/process_text`, {
         text: prompt,
         userId: userId,
         sessionId: currentSessionId,
         timestamp: new Date().toISOString(),
-      });
+      }, { timeout: AXIOS_TIMEOUT_MS });
 
       const [chatResponse, stressResponse] = await Promise.all([
         chatPromise,
@@ -91,7 +94,9 @@ export function GlobalChatProvider({ children }) {
       console.error("Error sending message:", error);
       let errorText = "I'm having trouble connecting. Please try again.";
 
-      if (error.response && error.response.data) {
+      if (error.code === 'ECONNABORTED') {
+        errorText = "Request timed out. Please check your connection.";
+      } else if (error.response && error.response.data) {
         if (error.response.data.response) errorText = error.response.data.response;
         else if (error.response.data.error) errorText = error.response.data.error;
       }

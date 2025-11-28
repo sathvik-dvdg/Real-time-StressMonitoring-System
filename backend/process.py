@@ -121,7 +121,7 @@ def try_load_facial_model():
     if _face_mesh is None:
         mp_face_mesh = mp.solutions.face_mesh
         _face_mesh = mp_face_mesh.FaceMesh(
-            static_image_mode=True,  # Changed to True for stateless REST API
+            static_image_mode=False,  # Video mode to handle sequential frames without timestamp conflicts
             max_num_faces=1,
             refine_landmarks=True,
             min_detection_confidence=0.5,
