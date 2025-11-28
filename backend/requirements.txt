@@ -58,18 +58,6 @@ networkx==3.5
 numpy==1.26.4
 opencv-contrib-python==4.11.0.86
 opencv-python==4.7.0.72
-
-
-# Textual Analysis (RoBERTa)
-torch
-transformers
-scipy
-
-# Chatbot API (Gemini)
-google-genai
-
-# Rate Limiting
-Flask-Limiter
 opt_einsum==3.4.0
 ordered-set==4.1.0
 packaging==25.0
@@ -92,7 +80,7 @@ requests==2.32.5
 rich==14.2.0
 rsa==4.9.1
 safetensors==0.7.0
-scikit-learn==1.6.1
+scikit-learn==1.7.2
 scipy==1.16.3
 sentencepiece==0.2.1
 setuptools==80.9.0
