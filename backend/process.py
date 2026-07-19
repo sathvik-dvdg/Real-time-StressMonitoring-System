@@ -165,26 +165,26 @@ def _try_load_joblib_models():
             logger.warning(f"⚠️ Classifier file not found at {FACIAL_CLF_PATH}")
 
 def get_text_model_and_tokenizer():
-    """Deprecated - text analysis now uses Gemini API. Kept for compatibility."""
-    # Updated: 2025-01-25 02:11 - Removed model loading, using Gemini instead
-    logger.info("Text model loading skipped - using Gemini API for text analysis")
+    """Deprecated - text analysis now uses Groq API. Kept for compatibility."""
+    # Updated: 2025-01-25 02:11 - Removed model loading, using Groq instead
+    logger.info("Text model loading skipped - using Groq API for text analysis")
     return None, None
 
-def analyze_text_with_gemini(text: str, gemini_model) -> Optional[Dict[str, Any]]:
-    """Use Gemini to analyze text for emotions and stress. Returns None if fails."""
+def analyze_text_with_groq(text: str, groq_model) -> Optional[Dict[str, Any]]:
+    """Use Groq to analyze text for emotions and stress. Returns None if fails."""
     # Write to file since waitress suppresses print
     with open('debug.log', 'a') as f:
-        f.write(f"\n[GEMINI] analyze_text_with_gemini called with text='{text}'\n")
+        f.write(f"\n[GROQ] analyze_text_with_groq called with text='{text}'\n")
         f.flush()
     
-    if not gemini_model:
+    if not groq_model:
         with open('debug.log', 'a') as f:
-            f.write(f"[GEMINI] FAILED: gemini_model is None\n")
+            f.write(f"[GROQ] FAILED: groq_model is None\n")
             f.flush()
         return None
     if not text:
         with open('debug.log', 'a') as f:
-            f.write(f"[GEMINI] FAILED: text is empty\n")
+            f.write(f"[GROQ] FAILED: text is empty\n")
             f.flush()
         return None
     
@@ -205,18 +205,18 @@ Example:
 Respond ONLY with valid JSON, no markdown formatting.'''
         
         with open('debug.log', 'a') as f:
-            f.write(f"[GEMINI] Calling Gemini API...\n")
+            f.write(f"[GROQ] Calling API...\n")
             f.flush()
             
-        response = gemini_model.models.generate_content(
-            model="gemini-2.0-flash",
+        response = groq_model.models.generate_content(
+            model="llama-3.1-8b-instant",
             contents=prompt
         )
         
         # Extract JSON from response
         response_text = response.text.strip()
         with open('debug.log', 'a') as f:
-            f.write(f"[GEMINI] Raw response: {response_text[:500]}\n")
+            f.write(f"[GROQ] Raw response: {response_text[:500]}\n")
             f.flush()
         
         # Remove markdown code blocks if present
@@ -224,36 +224,36 @@ Respond ONLY with valid JSON, no markdown formatting.'''
             lines = response_text.split('\n')
             response_text = '\n'.join(lines[1:-1])
             with open('debug.log', 'a') as f:
-                f.write(f"[GEMINI] After removing markdown\n")
+                f.write(f"[GROQ] After removing markdown\n")
                 f.flush()
         
         import json
         result = json.loads(response_text)
         with open('debug.log', 'a') as f:
-            f.write(f"[GEMINI] Parsed JSON: {result}\n")
+            f.write(f"[GROQ] Parsed JSON: {result}\n")
             f.flush()
         
         # Validate structure
         required_keys = ['stress_score', 'emotion', 'helpline_trigger', 'emotion_distribution']
         if all(k in result for k in required_keys):
             with open('debug.log', 'a') as f:
-                f.write(f"[GEMINI] SUCCESS: stress={result['stress_score']}, emotion={result['emotion']}, helpline={result['helpline_trigger']}\n")
+                f.write(f"[GROQ] SUCCESS: stress={result['stress_score']}, emotion={result['emotion']}, helpline={result['helpline_trigger']}\n")
                 f.flush()
-            logger.info(f"Gemini analyzed text: stress={result['stress_score']}, emotion={result['emotion']}, helpline={result['helpline_trigger']}")
+            logger.info(f"Groq analyzed text: stress={result['stress_score']}, emotion={result['emotion']}, helpline={result['helpline_trigger']}")
             return result
         else:
             missing = [k for k in required_keys if k not in result]
             with open('debug.log', 'a') as f:
-                f.write(f"[GEMINI] FAILED: Missing keys: {missing}\n")
+                f.write(f"[GROQ] FAILED: Missing keys: {missing}\n")
                 f.flush()
-            logger.warning(f"Gemini response missing required keys: {result}")
+            logger.warning(f"Groq response missing required keys: {result}")
             return None
             
     except Exception as e:
         with open('debug.log', 'a') as f:
-            f.write(f"[GEMINI] EXCEPTION: {type(e).__name__}: {e}\n")
+            f.write(f"[GROQ] EXCEPTION: {type(e).__name__}: {e}\n")
             f.flush()
-        logger.warning(f"Gemini text analysis failed: {e}")
+        logger.warning(f"Groq text analysis failed: {e}")
         return None
 
 # -------------------
@@ -543,7 +543,7 @@ def process_facial_frame(frame_bgr: Any, last_probs: Optional[List[float]] = Non
         logger.exception("Error in process_facial_frame: %s", e)
         return {"status": "error", "error": str(e)}
 
-def process_text(text: str, gemini_model=None) -> Dict[str, Any]:
+def process_text(text: str, groq_model=None) -> Dict[str, Any]:
     """
     Called by app.py's /api/process_text.
     Returns:
@@ -558,18 +558,21 @@ def process_text(text: str, gemini_model=None) -> Dict[str, Any]:
         
         logger.info(f"Processing text: '{text}'")
         
-        # Try Gemini analysis first
-        gemini_result = analyze_text_with_gemini(text, gemini_model)
+        # Try Groq analysis
+        if groq_model:
+            groq_result = analyze_text_with_groq(text, groq_model)
+        else:
+            groq_result = None
         
-        if gemini_result:
-            # Gemini succeeded - use its results
-            print(f"Using Gemini analysis", flush=True)
-            logger.info("Using Gemini analysis")
+        if groq_result:
+            # Groq succeeded - use its results
+            print(f"Using Groq analysis", flush=True)
+            logger.info("Using Groq analysis")
             
-            stress_score = gemini_result.get('stress_score', 0)
-            helpline_trigger = bool(gemini_result.get('helpline_trigger', False))
-            emotion = gemini_result.get('emotion', 'neutral')
-            dashboard_data = gemini_result.get('emotion_distribution', {})
+            stress_score = groq_result.get('stress_score', 0)
+            helpline_trigger = bool(groq_result.get('helpline_trigger', False))
+            emotion = groq_result.get('emotion', 'neutral')
+            dashboard_data = groq_result.get('emotion_distribution', {})
             
             # Ensure dashboard_data has all emotions
             for emotion_class in EMOTION_CLASSES:

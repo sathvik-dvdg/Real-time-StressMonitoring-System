@@ -9,9 +9,9 @@ class RecommendationService:
     emotions, and user context using Gemini AI.
     """
     
-    def __init__(self, gemini_client=None):
-        self.gemini_client = gemini_client
-        self.gemini_model = "gemini-2.0-flash"
+    def __init__(self, groq_client=None):
+        self.groq_client = groq_client
+        self.groq_model = "llama-3.1-8b-instant"
         
         # Crisis keywords for detection
         self.crisis_keywords = [
@@ -58,16 +58,16 @@ class RecommendationService:
         if crisis_detected:
             return self._get_crisis_recommendations(stress_score)
         
-        if not self.gemini_client:
+        if not self.groq_client:
             return self._get_fallback_recommendations(stress_score, emotion_data)
         
         try:
-            # Build a detailed prompt for Gemini
+            # Build a detailed prompt for Groq
             prompt = self._build_recommendation_prompt(stress_score, emotion_data, session_context)
             
-            # Call Gemini API
-            response = self.gemini_client.models.generate_content(
-                model=self.gemini_model,
+            # Call Groq API
+            response = self.groq_client.models.generate_content(
+                model=self.groq_model,
                 contents=prompt
             )
             
@@ -88,7 +88,7 @@ class RecommendationService:
         emotion_data: Dict[str, float],
         session_context: Optional[Dict[str, Any]]
     ) -> str:
-        """Build a concise prompt for Gemini AI."""
+        """Build a concise prompt for Groq AI."""
         
         # Get top emotions
         top_emotions = sorted(emotion_data.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -110,15 +110,15 @@ USER STATE:
 
 TASK: Provide 4-6 BRIEF recommendations (1 sentence each):
 
-IMMEDIATE (quick 2-5 min actions):
+IMMEDIATE ACTION:
 - [Action 1]
 - [Action 2]
 
-WELLNESS (longer activities):
+WELLNESS ACTIVITIES:
 - [Activity 1]
 - [Activity 2]
 
-{"PROFESSIONAL (if stress ≥60):" if stress_score >= 60 else ""}
+{"PROFESSIONAL SUPPORT:" if stress_score >= 60 else ""}
 {"- [Support option]" if stress_score >= 60 else ""}
 
 RULES:
@@ -328,9 +328,9 @@ RULES:
 # Singleton instance
 recommendation_service = None
 
-def get_recommendation_service(gemini_client=None):
+def get_recommendation_service(groq_client=None):
     """Get or create the recommendation service singleton."""
     global recommendation_service
     if recommendation_service is None:
-        recommendation_service = RecommendationService(gemini_client)
+        recommendation_service = RecommendationService(groq_client)
     return recommendation_service
