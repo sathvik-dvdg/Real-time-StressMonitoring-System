@@ -28,7 +28,7 @@ const CAPTURE_INTERVAL_MS = 200;          // ~5 FPS (reduced to avoid MediaPipe 
 const SMOOTHING_WINDOW = 5;
 const MAX_PENDING_REQUESTS = 1;           // reduce concurrent requests
 const BACKEND_ERROR_COOLDOWN_MS = 2000;   // when backend 500 occurs, pause sends for this long
-const AXIOS_TIMEOUT_MS = 20000;            // request timeout (increased to 20s)
+const AXIOS_TIMEOUT_MS = 60000;            // request timeout (increased to 60s for Render cold starts)
 
 // ================================
 // SessionPage (patched)
@@ -506,7 +506,7 @@ export default function SessionPage() {
 
     try {
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const BACKEND_URL = isLocal ? 'http://localhost:5000' : 'https://real-time-stressmonitoring-system.onrender.com';
+      const BACKEND_URL = isLocal ? 'http://localhost:5000' : 'https://real-time-stressmonitoring-system-jln9.onrender.com';
       const res = await axios.post(`${BACKEND_URL}/api/process_face`, payload, { timeout: AXIOS_TIMEOUT_MS, headers });
       const data = res.data;
 

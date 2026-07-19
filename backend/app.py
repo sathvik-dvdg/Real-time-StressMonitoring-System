@@ -19,18 +19,55 @@ from consultant_service_v2 import consultant_service
 from recommendation_service import get_recommendation_service
 
 # -----------------------------
-# Gemini — NEW google-genai SDK (correct)
+# Groq — using requests for zero-dependency API access
 # -----------------------------
-from google import genai
-from google.genai import types
+import requests as _requests
+import json as _json
+
+class GroqClient:
+    """Thin wrapper around the Groq REST API."""
+    def __init__(self, api_key, model):
+        self.api_key = api_key
+        self.model = model
+        self.base_url = "https://api.groq.com/openai/v1/chat/completions"
+
+    def generate(self, prompt, model=None):
+        model_name = model or self.model
+        # Groq uses OpenAI-compatible endpoint
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        payload = {
+            "model": model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.7
+        }
+        response = _requests.post(self.base_url, headers=headers, json=payload, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        text = data["choices"][0]["message"]["content"]
+        return text
+
+    # Keep backward compat with code that does client.models.generate_content(...)
+    @property
+    def models(self):
+        return self
+
+    def generate_content(self, model, contents):
+        class _Resp:
+            def __init__(self, text): self.text = text
+        text = self.generate(contents, model=model)
+        return _Resp(text)
 
 # -----------------------------
 # Environment
 # -----------------------------
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# Using llama3 as the default free Groq model
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
 # -----------------------------
 # Logging
@@ -113,23 +150,22 @@ if get_text_model_and_tokenizer:
 LOG.info("🔄 Model init complete")
 
 # -----------------------------
-# Initialize Gemini client (NEW SDK)
+# Initialize Groq client
 # -----------------------------
-gemini_model = None
+groq_model = None
 
-if GEMINI_API_KEY:
+if GROQ_API_KEY:
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        gemini_model = client
-        LOG.info(f"🤖 Gemini ready with model: {GEMINI_MODEL}")
+        groq_model = GroqClient(api_key=GROQ_API_KEY, model=GROQ_MODEL)
+        LOG.info(f"Groq ready with model: {GROQ_MODEL}")
     except Exception as e:
-        LOG.error("Gemini init failed: %s", e)
+        LOG.error("Groq init failed: %s", e)
 else:
-    LOG.critical("❌ GEMINI_API_KEY not found in .env! Chat features will not work.")
+    LOG.critical("GROQ_API_KEY not found in .env! Chat features will not work.")
     print("\n" + "="*50)
-    print("CRITICAL ERROR: GEMINI_API_KEY is missing.")
+    print("CRITICAL ERROR: GROQ_API_KEY is missing.")
     print("Please create a .env file in the backend directory with:")
-    print("GEMINI_API_KEY=your_api_key_here")
+    print("GROQ_API_KEY=your_key_here")
     print("="*50 + "\n")
 
 
@@ -211,8 +247,8 @@ def api_process_text():
         if not process_text:
             return jsonify({"status": "error", "error": "process_text missing"}), 500
 
-        # Pass gemini_model to process_text for AI-powered analysis
-        res = process_text(text, gemini_model=gemini_model)
+        # Pass groq_model to process_text for AI-powered analysis
+        res = process_text(text, groq_model=groq_model)
         print(f"process_text returned: {res}", flush=True)
 
         response_data = {
@@ -234,13 +270,13 @@ def api_process_text():
 
 
 # ---------------------------------------------------
-# Gemini Chat — NEW SDK VERSION
+# Groq Chat
 # ---------------------------------------------------
 @app.route("/api/chat", methods=["POST"])
 @limiter.limit("60 per minute")
 def api_chat():
-    if gemini_model is None:
-        return jsonify({"status": "error", "response": "Gemini not configured"}), 500
+    if groq_model is None:
+        return jsonify({"error": "Groq client not initialized"}), 500
 
     try:
         payload = request.get_json(silent=True) or {}
@@ -250,8 +286,8 @@ def api_chat():
             return jsonify({"status": "error", "response": "No prompt"}), 400
 
         # NEW API CALL
-        response = gemini_model.models.generate_content(
-            model=GEMINI_MODEL,
+        response = groq_model.models.generate_content(
+            model=GROQ_MODEL,
             contents=prompt
         )
 
@@ -341,7 +377,7 @@ def api_recommendations():
             }), 400
         
         # Get recommendation service with Gemini client
-        rec_service = get_recommendation_service(gemini_model)
+        rec_service = get_recommendation_service(groq_model)
         
         # Generate recommendations
         recommendations = rec_service.generate_recommendations(
@@ -423,7 +459,7 @@ def api_recommendation_feedback():
 def health():
     return jsonify({
         "status": "ok",
-        "gemini_loaded": gemini_model is not None
+        "groq_loaded": groq_model is not None
     })
 
 
