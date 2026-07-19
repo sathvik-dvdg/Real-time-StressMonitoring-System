@@ -506,7 +506,7 @@ export default function SessionPage() {
 
     try {
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const BACKEND_URL = isLocal ? 'http://localhost:5000' : 'https://real-time-stressmonitoring-system-1-t0gs.onrender.com';
+      const BACKEND_URL = isLocal ? 'http://localhost:5000' : 'https://real-time-stressmonitoring-system-jln9.onrender.com';
       const res = await axios.post(`${BACKEND_URL}/api/process_face`, payload, { timeout: AXIOS_TIMEOUT_MS, headers });
       const data = res.data;
 

@@ -1,7 +1,7 @@
 // frontend/src/components/recommendationService.js
 // API service for fetching recommendations and nearby consultants
 
-const API_BASE_URL = 'https://real-time-stressmonitoring-system-1-t0gs.onrender.com/api';
+const API_BASE_URL = 'https://real-time-stressmonitoring-system-jln9.onrender.com/api';
 
 /**
  * Get user's current location using browser geolocation API

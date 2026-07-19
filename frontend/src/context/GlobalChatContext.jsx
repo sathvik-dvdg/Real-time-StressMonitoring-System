@@ -47,7 +47,7 @@ export function GlobalChatProvider({ children }) {
     setIsLoading(true);
 
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const API_BASE_URL = isLocal ? 'http://localhost:5000' : 'https://real-time-stressmonitoring-system-1-t0gs.onrender.com';
+    const API_BASE_URL = isLocal ? 'http://localhost:5000' : 'https://real-time-stressmonitoring-system-jln9.onrender.com';
     const AXIOS_TIMEOUT_MS = 20000;
 
     // Use the specific session ID if provided (e.g. from SessionPage), otherwise use global
