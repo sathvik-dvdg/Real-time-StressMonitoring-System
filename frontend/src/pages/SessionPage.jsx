@@ -28,7 +28,7 @@ const CAPTURE_INTERVAL_MS = 200;          // ~5 FPS (reduced to avoid MediaPipe 
 const SMOOTHING_WINDOW = 5;
 const MAX_PENDING_REQUESTS = 1;           // reduce concurrent requests
 const BACKEND_ERROR_COOLDOWN_MS = 2000;   // when backend 500 occurs, pause sends for this long
-const AXIOS_TIMEOUT_MS = 20000;            // request timeout (increased to 20s)
+const AXIOS_TIMEOUT_MS = 60000;            // request timeout (increased to 60s for Render cold starts)
 
 // ================================
 // SessionPage (patched)
